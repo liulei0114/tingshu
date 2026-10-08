@@ -10,4 +10,8 @@ import java.util.List;
 public interface AlbumAttributeValueMapper extends BaseMapper<AlbumAttributeValue> {
 
     void insertBatch(List<AlbumAttributeValue> albumAttributeValueList);
+
+    List<AlbumAttributeValue> selectAlbumAttributeValueByAlbumId(Long albumId);
+
+    void deleteByAlbumId(Long albumId);
 }

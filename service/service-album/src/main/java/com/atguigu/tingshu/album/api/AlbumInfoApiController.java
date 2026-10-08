@@ -3,6 +3,7 @@ package com.atguigu.tingshu.album.api;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
+import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.query.album.AlbumInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.atguigu.tingshu.vo.album.AlbumListVo;
@@ -46,6 +47,20 @@ public class AlbumInfoApiController {
 	@DeleteMapping("/albumInfo/removeAlbumInfo/{id}")
 	public Result removeAlbumInfo(@PathVariable Long id) {
 		albumInfoService.removeAlbumInfo(id);
+		return Result.ok();
+	}
+
+	@Operation(summary = "根据专辑ID查询专辑信息（包括专辑标签列表）")
+	@GetMapping("/albumInfo/getAlbumInfo/{id}")
+	public Result<AlbumInfo> getAlbumInfo(@PathVariable Long id) {
+		AlbumInfo albumInfo = albumInfoService.getAlbumInfo(id);
+		return Result.ok(albumInfo);
+	}
+
+	@Operation(summary = "更新专辑信息")
+	@PutMapping("/albumInfo/updateAlbumInfo/{id}")
+	public Result updateAlbumInfo(@PathVariable Long id, @Validated @RequestBody AlbumInfoVo albumInfoVo) {
+		albumInfoService.updateAlbumInfo(id, albumInfoVo);
 		return Result.ok();
 	}
 

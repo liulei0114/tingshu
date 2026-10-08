@@ -12,4 +12,24 @@
             (#{item.albumId}, #{item.attributeId}, #{item.valueId})
         </foreach>
     </insert>
+
+    <select id="selectAlbumAttributeValueByAlbumId" resultType="com.atguigu.tingshu.model.album.AlbumAttributeValue">
+        select aav.*,
+               ba.attribute_name,
+               bv.value_name
+        from album_attribute_value aav
+                 join base_attribute ba on aav.attribute_id = ba.id
+                 join base_attribute_value bv on aav.value_id = bv.id
+        where aav.album_id = #{albumId}
+          and aav.is_deleted = 0
+          and ba.is_deleted = 0
+          and bv.is_deleted = 0
+        order by aav.attribute_id, aav.value_id
+    </select>
+
+    <delete id="deleteByAlbumId">
+        delete
+        from album_attribute_value
+        where album_id = #{albumId}
+    </delete>
 </mapper>

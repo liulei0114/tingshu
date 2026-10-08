@@ -7,6 +7,7 @@ import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.query.album.AlbumInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.atguigu.tingshu.vo.album.AlbumListVo;
+import com.atguigu.tingshu.vo.album.TrackInfoVo;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @Tag(name = "专辑管理")
@@ -25,6 +28,7 @@ public class AlbumInfoApiController {
 	@Autowired
 	private AlbumInfoService albumInfoService;
 
+	@Operation(summary = "保存专辑信息")
 	@PostMapping("/albumInfo/saveAlbumInfo")
 	public Result<Long> saveAlbumInfo(@Validated @RequestBody AlbumInfoVo albumInfoVo) {
 		return Result.ok(albumInfoService.saveAlbumInfo(albumInfoVo));
@@ -63,6 +67,14 @@ public class AlbumInfoApiController {
 		albumInfoService.updateAlbumInfo(id, albumInfoVo);
 		return Result.ok();
 	}
+
+	@Operation(summary = "获取当前用户全部专辑列表")
+	@GetMapping("/albumInfo/findUserAllAlbumList")
+	public Result<List<AlbumInfo>> getUserAllAlbumList(){
+		// TODO: 替换为当前登录用户id
+		return Result.ok(albumInfoService.findUserAllAlbum(1L));
+	}
+
 
 }
 

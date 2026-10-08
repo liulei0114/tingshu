@@ -113,6 +113,15 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         // 重新关联标签
         buildAlbumAttributeValueList(id, albumInfoVo);
 
+        // 3.TODO 再次对内容进行审核
+    }
+
+    @Override
+    public List<AlbumInfo> findUserAllAlbum(Long userId) {
+        LambdaQueryWrapper<AlbumInfo> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.select(AlbumInfo::getId, AlbumInfo::getAlbumTitle).eq(AlbumInfo::getUserId, userId).orderByDesc(AlbumInfo::getCreateTime).last("limit 200");
+        List<AlbumInfo> albumInfoList = albumInfoMapper.selectList(lambdaQueryWrapper);
+        return albumInfoList;
     }
 
     public List<AlbumAttributeValue> buildAlbumAttributeValueList(Long albumId, AlbumInfoVo albumInfoVo) {

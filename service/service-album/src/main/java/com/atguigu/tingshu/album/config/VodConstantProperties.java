@@ -1,8 +1,11 @@
 package com.atguigu.tingshu.album.config;
 
 
+import com.qcloud.vod.VodUploadClient;
+import com.tencentcloudapi.common.Credential;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
@@ -18,4 +21,18 @@ public class VodConstantProperties {
     private String procedure;
     private String tempPath;
     private String playKey;
+
+    @Bean
+    public VodUploadClient vodUploadClient() {
+        return new VodUploadClient(secretId, secretKey);
+    }
+
+    /**
+     * 调用点播平台认证对象
+     * @return
+     */
+    @Bean
+    public Credential cred() {
+        return new Credential(secretId, secretKey);
+    }
 }

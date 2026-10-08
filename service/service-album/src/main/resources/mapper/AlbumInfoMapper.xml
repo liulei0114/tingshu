@@ -5,6 +5,42 @@
 <mapper namespace="com.atguigu.tingshu.album.mapper.AlbumInfoMapper">
 
 
-
+    <select id="selectAlbumListVoPage" resultType="com.atguigu.tingshu.vo.album.AlbumListVo">
+        select
+            ai.id as albumId,
+            ai.album_title,
+            ai.cover_url,
+            ai.include_track_count,
+            ai.is_finished,
+            ai.status,
+            ast.play_stat_num,
+            ast.subscribe_stat_num,
+            ast.buy_stat_num,
+            ast.comment_stat_num
+        from album_info ai
+        left join
+        (select s.album_id,
+        SUM(IF(s.stat_type = '0401', s.stat_num, 0)) AS play_stat_num,
+        SUM(IF(s.stat_type = '0402', s.stat_num, 0)) AS subscribe_stat_num,
+        SUM(IF(s.stat_type = '0403', s.stat_num, 0)) AS buy_stat_num,
+        SUM(IF(s.stat_type = '0404', s.stat_num, 0)) AS comment_stat_num
+        FROM album_stat s
+        where s.is_deleted = 0
+        GROUP BY s.album_id) ast
+        on ai.id = ast.album_id
+        <where>
+            ai.is_deleted = 0
+            <if test="query.albumTitle != null and query.albumTitle != ''">
+                and ai.album_title like CONCAT('%', #{query.albumTitle}, '%')
+            </if>
+            <if test="query.status != null and query.status != ''">
+                and ai.status = #{query.status}
+            </if>
+            <if test="query.userId != null">
+                and ai.user_id = #{query.userId}
+            </if>
+        </where>
+        order by ai.create_time desc
+    </select>
 </mapper>
 

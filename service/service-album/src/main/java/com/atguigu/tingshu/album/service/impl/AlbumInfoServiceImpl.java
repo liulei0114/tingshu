@@ -5,12 +5,19 @@ import cn.hutool.core.collection.CollUtil;
 import com.atguigu.tingshu.album.mapper.AlbumAttributeValueMapper;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
+import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
+import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.AlbumStat;
+import com.atguigu.tingshu.model.album.TrackInfo;
+import com.atguigu.tingshu.query.album.AlbumInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
+import com.atguigu.tingshu.vo.album.AlbumListVo;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,8 +33,8 @@ import java.util.List;
 @SuppressWarnings({"all"})
 public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo> implements AlbumInfoService {
 
-	@Autowired
-	private AlbumInfoMapper albumInfoMapper;
+    @Autowired
+    private AlbumInfoMapper albumInfoMapper;
 
     @Autowired
     private AlbumAttributeValueMapper albumAttributeValueMapper;
@@ -35,13 +42,17 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
     @Autowired
     private AlbumStatMapper albumStatMapper;
 
+    @Autowired
+    private TrackInfoMapper trackInfoMapper;
+
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     @Override
     public Long saveAlbumInfo(AlbumInfoVo albumInfoVo) {
-        AlbumInfo albumInfo = BeanUtil.copyProperties(albumInfoVo,AlbumInfo.class);
+        AlbumInfo albumInfo = BeanUtil.copyProperties(albumInfoVo, AlbumInfo.class);
+        // TODO: 替换成当前登录用户id
         albumInfo.setUserId(1L);
         if (SystemConstant.ALBUM_PAY_TYPE_VIPFREE.equals(albumInfo.getPayType()) || SystemConstant.ALBUM_PAY_TYPE_REQUIRE.equals(albumInfo.getPayType())) {
-            //只需要对VIP免费或付费资源设置试听集
+            // 只需要对VIP免费或付费资源设置试听集
             albumInfo.setTracksForFree(3);
         }
         albumInfo.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
@@ -59,7 +70,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
             albumAttributeValue.setValueId(albumAttributeValueVo.getValueId());
             albumAttributeValueList.add(albumAttributeValue);
         });
-        if(CollUtil.isNotEmpty(albumAttributeValueList)){
+        if (CollUtil.isNotEmpty(albumAttributeValueList)) {
             albumAttributeValueMapper.insertBatch(albumAttributeValueList);
         }
         // 初始化统计
@@ -67,7 +78,26 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_SUBSCRIBE, 0));
         albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_BUY, 0));
         albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_COMMENT, 0));
-        //4.TODO 对专辑中文本内容进行审核  & 索引库ES中新增记录
+        // 4.TODO 对专辑中文本内容进行审核  & 索引库ES中新增记录
         return albumId;
+    }
+
+    @Override
+    public Page<AlbumListVo> findUserAlbumPage(Page<AlbumListVo> pageParam, AlbumInfoQuery albumInfoQuery) {
+        Page<AlbumListVo> page = albumInfoMapper.selectAlbumListVoPage(pageParam, albumInfoQuery);
+        return page;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeAlbumInfo(Long id) {
+        Long count = trackInfoMapper.selectCount(new LambdaQueryWrapper<TrackInfo>().eq(TrackInfo::getAlbumId, id));
+        if (count > 0) {
+            throw new GuiguException(500, "该专辑下存在关联声音");
+        }
+        albumInfoMapper.deleteById(id);
+        albumAttributeValueMapper.delete(new LambdaQueryWrapper<AlbumAttributeValue>().eq(AlbumAttributeValue::getAlbumId, id));
+        albumStatMapper.delete(new LambdaQueryWrapper<AlbumStat>().eq(AlbumStat::getAlbumId, id));
+        // 5.TODO 基于MQ删除存在Elasticsearch（全文搜索引擎）中数据
     }
 }

@@ -2,15 +2,19 @@ package com.atguigu.tingshu.album.api;
 
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.common.util.AuthContextHolder;
+import com.atguigu.tingshu.query.album.AlbumInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
+import com.atguigu.tingshu.vo.album.AlbumListVo;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @Tag(name = "专辑管理")
 @RestController
 @RequestMapping("api/album")
@@ -25,6 +29,25 @@ public class AlbumInfoApiController {
 		return Result.ok(albumInfoService.saveAlbumInfo(albumInfoVo));
 	}
 
+	@Operation(summary = "分页条件查询当前登录用户发布专辑")
+	@PostMapping("/albumInfo/findUserAlbumPage/{page}/{limit}")
+	public Result<Page<AlbumListVo>> findUserAlbumPage(@PathVariable Long page,
+                                                       @PathVariable Long limit,
+                                                       @RequestBody AlbumInfoQuery albumInfoQuery) {
+		Page<AlbumListVo> pageParam = new Page<>(page, limit);
+		if(albumInfoQuery == null) {
+			albumInfoQuery = new AlbumInfoQuery();
+		}
+		albumInfoQuery.setUserId(AuthContextHolder.getUserId());
+		return Result.ok(albumInfoService.findUserAlbumPage(pageParam, albumInfoQuery));
+	}
+
+	@Operation(summary = "根据专辑ID删除专辑")
+	@DeleteMapping("/albumInfo/removeAlbumInfo/{id}")
+	public Result removeAlbumInfo(@PathVariable Long id) {
+		albumInfoService.removeAlbumInfo(id);
+		return Result.ok();
+	}
 
 }
 

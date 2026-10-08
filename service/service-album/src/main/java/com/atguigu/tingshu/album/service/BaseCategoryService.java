@@ -7,9 +7,9 @@ import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
 
-public interface BaseCategoryService extends IService<BaseCategory1>  {
+public interface BaseCategoryService extends IService<BaseCategory1> {
 
-    public List<CategoryInfoVo> getCategoryList();
+    List<CategoryInfoVo> getCategoryList();
 
     List<CategoryAttributeValue> findAttributeByCategory1Id(Long category1Id);
 }

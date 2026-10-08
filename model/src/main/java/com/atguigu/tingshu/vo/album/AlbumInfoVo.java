@@ -10,6 +10,7 @@ import lombok.Data;
 import org.hibernate.validator.constraints.Length;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -77,7 +78,7 @@ public class AlbumInfoVo {
 	//@Valid
 	//@NotEmpty(message = "属性值集合不能为空")
 	@Schema(description = "属性值集合")
-	private List<AlbumAttributeValueVo> albumAttributeValueVoList;
+	private List<AlbumAttributeValueVo> albumAttributeValueVoList = new ArrayList<>();
 
 	@NotEmptyPaid(message = "价格类型不能为空")
 	public String getPayTypeAndPriceType() {

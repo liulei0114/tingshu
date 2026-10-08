@@ -13,6 +13,12 @@ public class AlbumStat extends BaseEntity {
 
 	private static final long serialVersionUID = 1L;
 
+	public AlbumStat(Long albumId, String statType, Integer statNum) {
+		this.albumId = albumId;
+		this.statType = statType;
+		this.statNum = statNum;
+	}
+
 	@Schema(description = "专辑id")
 	@TableField("album_id")
 	private Long albumId;
@@ -24,5 +30,6 @@ public class AlbumStat extends BaseEntity {
 	@Schema(description = "统计数目")
 	@TableField("stat_num")
 	private Integer statNum;
+
 
 }

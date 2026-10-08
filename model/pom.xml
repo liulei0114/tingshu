@@ -17,6 +17,7 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.atguigu.tingshu</groupId>
             <artifactId>common-util</artifactId>

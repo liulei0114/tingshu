@@ -1,5 +1,6 @@
 package com.atguigu.tingshu.album.config;
 
+import io.minio.MinioClient;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -13,4 +14,11 @@ public class MinioConstantProperties {
     private String accessKey;
     private String secreKey;
     private String bucketName;
+
+    public MinioClient getMinioClient() {
+        return MinioClient.builder()
+                .endpoint(endpointUrl)
+                .credentials(accessKey, secreKey)
+                .build();
+    }
 }

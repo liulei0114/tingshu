@@ -1,12 +1,25 @@
 package com.atguigu.tingshu.album.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import com.atguigu.tingshu.album.mapper.AlbumAttributeValueMapper;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
+import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
+import com.atguigu.tingshu.common.constant.SystemConstant;
+import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.AlbumStat;
+import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -15,4 +28,46 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
 	@Autowired
 	private AlbumInfoMapper albumInfoMapper;
+
+    @Autowired
+    private AlbumAttributeValueMapper albumAttributeValueMapper;
+
+    @Autowired
+    private AlbumStatMapper albumStatMapper;
+
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
+    @Override
+    public Long saveAlbumInfo(AlbumInfoVo albumInfoVo) {
+        AlbumInfo albumInfo = BeanUtil.copyProperties(albumInfoVo,AlbumInfo.class);
+        albumInfo.setUserId(1L);
+        if (SystemConstant.ALBUM_PAY_TYPE_VIPFREE.equals(albumInfo.getPayType()) || SystemConstant.ALBUM_PAY_TYPE_REQUIRE.equals(albumInfo.getPayType())) {
+            //只需要对VIP免费或付费资源设置试听集
+            albumInfo.setTracksForFree(3);
+        }
+        albumInfo.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
+        // 保存专辑
+        albumInfoMapper.insert(albumInfo);
+        log.info("albumInfo.getId() = {}", albumInfo.getId());
+        // 返回专辑id
+        Long albumId = albumInfo.getId();
+        // 保存专辑属性值
+        List<AlbumAttributeValue> albumAttributeValueList = new ArrayList<>();
+        albumInfoVo.getAlbumAttributeValueVoList().forEach(albumAttributeValueVo -> {
+            AlbumAttributeValue albumAttributeValue = new AlbumAttributeValue();
+            albumAttributeValue.setAlbumId(albumId);
+            albumAttributeValue.setAttributeId(albumAttributeValueVo.getAttributeId());
+            albumAttributeValue.setValueId(albumAttributeValueVo.getValueId());
+            albumAttributeValueList.add(albumAttributeValue);
+        });
+        if(CollUtil.isNotEmpty(albumAttributeValueList)){
+            albumAttributeValueMapper.insertBatch(albumAttributeValueList);
+        }
+        // 初始化统计
+        albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_PLAY, 0));
+        albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_SUBSCRIBE, 0));
+        albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_BUY, 0));
+        albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_COMMENT, 0));
+        //4.TODO 对专辑中文本内容进行审核  & 索引库ES中新增记录
+        return albumId;
+    }
 }

@@ -8,6 +8,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * <p>
  * BaseCategoryView
@@ -45,6 +47,7 @@ public class BaseCategoryView extends BaseEntity {
 	@Schema(description = "三级分类名称")
 	@TableField("category3_name")
 	private String category3Name;
+
 
 }
 

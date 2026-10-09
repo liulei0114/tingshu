@@ -90,9 +90,15 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         log.info("腾讯云审核意见 = {}", suggestion);
         if ("pass".equals(suggestion)) {
             trackInfo.setStatus(SystemConstant.TRACK_STATUS_PASS);
+        } else if ("review".equals(suggestion)) {
+            trackInfo.setStatus(SystemConstant.TRACK_STATUS_REVIEWING);
         } else {
             trackInfo.setStatus(SystemConstant.TRACK_STATUS_NO_PASS);
         }
+        // 6.对点播平台音频文件进行审核（异步审核）
+        String reviewTaskId = auditService.startReviewTask(trackInfo.getMediaFileId());
+        trackInfo.setStatus(SystemConstant.TRACK_STATUS_REVIEWING);
+        trackInfo.setReviewTaskId(reviewTaskId);
         trackInfoMapper.updateById(trackInfo);
     }
 
@@ -124,6 +130,8 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         log.info("腾讯云审核意见 = {}", suggestion);
         if ("pass".equals(suggestion)) {
             trackInfo.setStatus(SystemConstant.TRACK_STATUS_PASS);
+        } else if ("review".equals(suggestion)) {
+            trackInfo.setStatus(SystemConstant.TRACK_STATUS_REVIEWING);
         } else {
             trackInfo.setStatus(SystemConstant.TRACK_STATUS_NO_PASS);
         }
@@ -136,11 +144,12 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
                 trackInfo.setMediaDuration(BigDecimal.valueOf(trackMediaInfoVo.getDuration()));
                 trackInfo.setMediaSize(trackMediaInfoVo.getSize());
                 trackInfo.setMediaType(trackMediaInfoVo.getType());
-                trackInfo.setStatus(SystemConstant.TRACK_STATUS_NO_PASS);
             }
             // 点播平台删除声音
             vodService.deleteTrack(trackInfoDb.getMediaFileId());
-            //3.TODO 对修改后音频文件进行内容审核:发起审核任务
+            String reviewTaskId = auditService.startReviewTask(trackInfo.getMediaFileId());
+            trackInfo.setStatus(SystemConstant.TRACK_STATUS_REVIEWING);
+            trackInfo.setReviewTaskId(reviewTaskId);
         }
         // 更新声音
         trackInfoMapper.updateById(trackInfo);

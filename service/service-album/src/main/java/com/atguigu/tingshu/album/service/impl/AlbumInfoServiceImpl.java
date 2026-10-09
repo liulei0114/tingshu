@@ -7,6 +7,7 @@ import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
+import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
@@ -46,6 +47,9 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
     @Autowired
     private TrackInfoMapper trackInfoMapper;
 
+    @Autowired
+    private AuditService auditService;
+
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     @Override
     public Long saveAlbumInfo(AlbumInfoVo albumInfoVo) {
@@ -70,7 +74,17 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_SUBSCRIBE, 0));
         albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_BUY, 0));
         albumStatMapper.insert(new AlbumStat(albumId, SystemConstant.ALBUM_STAT_COMMENT, 0));
-        // 4.TODO 对专辑中文本内容进行审核  & 索引库ES中新增记录
+        String text = albumInfo.getAlbumTitle() + albumInfo.getAlbumIntro();
+        String suggestion = auditService.auditText(text);
+        log.info("腾讯云审核意见 = {}", suggestion);
+        if ("pass".equals(suggestion)) {
+            albumInfo.setStatus(SystemConstant.ALBUM_STATUS_PASS);
+            // TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
+        } else {
+            albumInfo.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
+            // TODO 发送MQ消息 通知 搜索服务 从ES引库删除
+        }
+        albumInfoMapper.updateById(albumInfo);
         return albumId;
     }
 
@@ -113,7 +127,17 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         // 重新关联标签
         buildAlbumAttributeValueList(id, albumInfoVo);
 
-        // 3.TODO 再次对内容进行审核
+        String text = albumInfo.getAlbumTitle() + albumInfo.getAlbumIntro();
+        String suggestion = auditService.auditText(text);
+        log.info("腾讯云审核意见 = {}", suggestion);
+        if ("pass".equals(suggestion)) {
+            albumInfo.setStatus(SystemConstant.ALBUM_STATUS_PASS);
+            // TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
+        } else {
+            albumInfo.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
+            //TODO 发送MQ消息 通知 搜索服务 从ES引库删除
+        }
+        albumInfoMapper.updateById(albumInfo);
     }
 
     @Override

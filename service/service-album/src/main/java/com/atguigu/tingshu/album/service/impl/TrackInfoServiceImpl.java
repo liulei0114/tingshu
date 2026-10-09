@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.mapper.TrackStatMapper;
+import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.album.service.VodService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
@@ -44,6 +45,9 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
     @Autowired
     private TrackStatMapper trackStatMapper;
 
+    @Autowired
+    private AuditService auditService;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveTrackInfo(TrackInfoVo trackInfoVo, Long userId) {
@@ -81,7 +85,15 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         this.saveTrackStat(trackInfo.getId(), SystemConstant.TRACK_STAT_PRAISE, 0);
         this.saveTrackStat(trackInfo.getId(), SystemConstant.TRACK_STAT_COMMENT, 0);
 
-        // 5.TODO 对点播平台音频文件进行审核（异步审核）
+        String text = trackInfo.getTrackTitle() + trackInfo.getTrackIntro();
+        String suggestion = auditService.auditText(text);
+        log.info("腾讯云审核意见 = {}", suggestion);
+        if ("pass".equals(suggestion)) {
+            trackInfo.setStatus(SystemConstant.TRACK_STATUS_PASS);
+        } else {
+            trackInfo.setStatus(SystemConstant.TRACK_STATUS_NO_PASS);
+        }
+        trackInfoMapper.updateById(trackInfo);
     }
 
     @Override
@@ -107,6 +119,14 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         if (StrUtil.isBlank(trackInfo.getMediaFileId())) {
             throw new GuiguException(500, "媒体文件ID为空");
         }
+        String text = trackInfo.getTrackTitle() + trackInfo.getTrackIntro();
+        String suggestion = auditService.auditText(text);
+        log.info("腾讯云审核意见 = {}", suggestion);
+        if ("pass".equals(suggestion)) {
+            trackInfo.setStatus(SystemConstant.TRACK_STATUS_PASS);
+        } else {
+            trackInfo.setStatus(SystemConstant.TRACK_STATUS_NO_PASS);
+        }
         if (!trackInfoDb.getMediaFileId().equals(trackInfo.getMediaFileId())) {
             // 修改了声音
             // 1.修改点播平台文件信息
@@ -120,6 +140,7 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
             }
             // 点播平台删除声音
             vodService.deleteTrack(trackInfoDb.getMediaFileId());
+            //3.TODO 对修改后音频文件进行内容审核:发起审核任务
         }
         // 更新声音
         trackInfoMapper.updateById(trackInfo);

@@ -11,6 +11,7 @@ import com.qcloud.vod.model.VodUploadResponse;
 import com.tencentcloudapi.common.Credential;
 import com.tencentcloudapi.common.exception.TencentCloudSDKException;
 import com.tencentcloudapi.vod.v20180717.VodClient;
+import com.tencentcloudapi.vod.v20180717.models.DeleteMediaRequest;
 import com.tencentcloudapi.vod.v20180717.models.DescribeMediaInfosRequest;
 import com.tencentcloudapi.vod.v20180717.models.DescribeMediaInfosResponse;
 import com.tencentcloudapi.vod.v20180717.models.MediaBasicInfo;
@@ -89,6 +90,22 @@ public class VodServiceImpl implements VodService {
             return trackMediaInfoVo;
         } catch (TencentCloudSDKException e) {
             log.error("获取音频媒体信息失败", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void deleteTrack(String mediaFileId) {
+        try {
+            // 1. 实例化点播客户端
+            VodClient client = new VodClient(credential, vodConstantProperties.getRegion());
+            // 2. 构造请求：根据文件id删除媒体文件
+            DeleteMediaRequest request = new DeleteMediaRequest();
+            request.setFileId(mediaFileId);
+            // 3. 发起请求删除媒体文件
+            client.DeleteMedia(request);
+        } catch (TencentCloudSDKException e) {
+            log.error("删除音频媒体文件失败", e);
             throw new RuntimeException(e);
         }
     }

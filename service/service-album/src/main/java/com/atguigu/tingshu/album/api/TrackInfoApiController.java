@@ -73,5 +73,19 @@ public class TrackInfoApiController {
         return Result.ok(trackInfo);
     }
 
+    @Operation(summary = "修改声音信息")
+    @PutMapping("/trackInfo/updateTrackInfo/{id}")
+    public Result updateTrackInfo(@PathVariable Long id, @RequestBody TrackInfo trackInfo){
+        trackInfoService.updateTrackInfo(trackInfo);
+        return Result.ok();
+    }
+
+    @Operation(summary = "删除声音记录")
+    @DeleteMapping("/trackInfo/removeTrackInfo/{id}")
+    public Result removeTrackInfo(@PathVariable Long id){
+        trackInfoService.removeTrackInfo(id);
+        return Result.ok();
+    }
+
 }
 

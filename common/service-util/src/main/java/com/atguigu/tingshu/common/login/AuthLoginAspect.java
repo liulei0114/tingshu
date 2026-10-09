@@ -2,10 +2,12 @@ package com.atguigu.tingshu.common.login;
 
 
 import com.atguigu.tingshu.common.constant.RedisConstant;
+import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.result.ResultCodeEnum;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.user.UserInfo;
+import com.atguigu.tingshu.vo.user.UserInfoVo;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -38,7 +40,7 @@ public class AuthLoginAspect {
             return Result.build(null, ResultCodeEnum.LOGIN_AUTH);
         }
         String loginKey = RedisConstant.USER_LOGIN_KEY_PREFIX + token;
-        UserInfo user = (UserInfo) redisTemplate.opsForValue().get(loginKey);
+        UserInfoVo user = (UserInfoVo) redisTemplate.opsForValue().get(loginKey);
         if (user == null && authLogin.required()) {
             log.info("token is invalid,无权访问接口");
             return Result.build(null, ResultCodeEnum.LOGIN_AUTH);

@@ -1,8 +1,14 @@
 package com.atguigu.tingshu.user.api;
 
+import com.atguigu.tingshu.common.login.AuthLogin;
+import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.user.service.UserInfoService;
+import com.atguigu.tingshu.vo.user.UserInfoVo;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -14,6 +20,8 @@ public class UserInfoApiController {
 
 	@Autowired
 	private UserInfoService userInfoService;
+
+
 
 }
 

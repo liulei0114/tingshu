@@ -29,7 +29,7 @@ public class ReviseResultTask {
     /**
      * 定时获取处于审核中声音，音频内容审核结果
      */
-    @Scheduled(cron = "0/5 * * * * ?")
+    @Scheduled(cron = "0 */5 * * * ?")
     public void reviceResultJob() {
         log.info("开始获取审核结果");
         //1.根据条件：1.审核中状态  2.限制数量 3.查询声音ID跟审核任务ID

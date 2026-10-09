@@ -2,6 +2,7 @@ package com.atguigu.tingshu.album.api;
 
 import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.album.service.VodService;
+import com.atguigu.tingshu.common.login.AuthLogin;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.TrackInfo;
@@ -37,17 +38,18 @@ public class TrackInfoApiController {
         return Result.ok(map);
     }
 
+    @AuthLogin
     @Operation(summary = "保存声音")
     @PostMapping("/trackInfo/saveTrackInfo")
     public Result saveTrackInfo(@Validated @RequestBody TrackInfoVo trackInfoVo) {
         // 1.获取用户ID
         Long userId = AuthContextHolder.getUserId();
         // 2.调用业务层保存声音
-        // todo：替换userid
-        trackInfoService.saveTrackInfo(trackInfoVo, 1L);
+        trackInfoService.saveTrackInfo(trackInfoVo, AuthContextHolder.getUserId());
         return Result.ok();
     }
 
+    @AuthLogin
     @Operation(summary = "条件分页查询当前用户声音列表（包含声音统计信息）")
     @PostMapping("/trackInfo/findUserTrackPage/{page}/{limit}")
     public Result<Page<TrackListVo>> getUserTrackPage(
@@ -57,8 +59,7 @@ public class TrackInfoApiController {
     ) {
         //1.获取当前用户ID
         Long userId = AuthContextHolder.getUserId();
-        // todo：替换userid
-        trackInfoQuery.setUserId(1L);
+        trackInfoQuery.setUserId(userId);
         //2.构建分页所需分页对象
         Page<TrackListVo> pageInfo = new Page<>(page, limit);
         //3.查询业务层(持久层)获取分页数据

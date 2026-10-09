@@ -2,6 +2,7 @@ package com.atguigu.tingshu.album.api;
 
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.common.execption.GuiguException;
+import com.atguigu.tingshu.common.login.AuthLogin;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.AlbumInfo;
@@ -31,10 +32,12 @@ public class AlbumInfoApiController {
 
 	@Operation(summary = "保存专辑信息")
 	@PostMapping("/albumInfo/saveAlbumInfo")
+	@AuthLogin
 	public Result<Long> saveAlbumInfo(@Validated @RequestBody AlbumInfoVo albumInfoVo) {
 		return Result.ok(albumInfoService.saveAlbumInfo(albumInfoVo));
 	}
 
+	@AuthLogin
 	@Operation(summary = "分页条件查询当前登录用户发布专辑")
 	@PostMapping("/albumInfo/findUserAlbumPage/{page}/{limit}")
 	public Result<Page<AlbumListVo>> findUserAlbumPage(@PathVariable Long page,
@@ -50,6 +53,7 @@ public class AlbumInfoApiController {
 
 	@Operation(summary = "根据专辑ID删除专辑")
 	@DeleteMapping("/albumInfo/removeAlbumInfo/{id}")
+	@AuthLogin
 	public Result removeAlbumInfo(@PathVariable Long id) {
 		albumInfoService.removeAlbumInfo(id);
 		return Result.ok();
@@ -72,8 +76,7 @@ public class AlbumInfoApiController {
 	@Operation(summary = "获取当前用户全部专辑列表")
 	@GetMapping("/albumInfo/findUserAllAlbumList")
 	public Result<List<AlbumInfo>> getUserAllAlbumList(){
-		// TODO: 替换为当前登录用户id
-		return Result.ok(albumInfoService.findUserAllAlbum(1L));
+		return Result.ok(albumInfoService.findUserAllAlbum(AuthContextHolder.getUserId()));
 	}
 
 

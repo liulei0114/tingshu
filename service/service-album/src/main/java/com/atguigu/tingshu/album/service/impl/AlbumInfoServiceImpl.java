@@ -10,6 +10,8 @@ import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.execption.GuiguException;
+import com.atguigu.tingshu.common.rabbit.constant.MqConst;
+import com.atguigu.tingshu.common.rabbit.service.RabbitService;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
@@ -51,6 +53,9 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
     @Autowired
     private AuditService auditService;
 
+    @Autowired
+    private RabbitService rabbitService;
+
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     @Override
     public Long saveAlbumInfo(AlbumInfoVo albumInfoVo) {
@@ -79,13 +84,13 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         log.info("腾讯云审核意见 = {}", suggestion);
         if ("pass".equals(suggestion)) {
             albumInfo.setStatus(SystemConstant.ALBUM_STATUS_PASS);
-            // TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
-        } else {
-            albumInfo.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
-            // TODO 发送MQ消息 通知 搜索服务 从ES引库删除
+            albumInfoMapper.updateById(albumInfo);
+            rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_UPPER, albumInfo.getId());
+            return albumInfo.getId();
         }
-        albumInfoMapper.updateById(albumInfo);
-        return albumId;
+        rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_LOWER, albumInfo.getId());
+        throw new GuiguException(500, "专辑标题或内容存在违规！");
+
     }
 
     @Override
@@ -104,13 +109,13 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         albumInfoMapper.deleteById(id);
         albumAttributeValueMapper.delete(new LambdaQueryWrapper<AlbumAttributeValue>().eq(AlbumAttributeValue::getAlbumId, id));
         albumStatMapper.delete(new LambdaQueryWrapper<AlbumStat>().eq(AlbumStat::getAlbumId, id));
-        // 5.TODO 基于MQ删除存在Elasticsearch（全文搜索引擎）中数据
+        rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_LOWER, id);
     }
 
     @Override
     public AlbumInfo getAlbumInfo(Long id) {
         AlbumInfo albumInfo = albumInfoMapper.selectById(id);
-        if (albumInfo == null){
+        if (albumInfo == null) {
             throw new GuiguException(500, "专辑不存在");
         }
         List<AlbumAttributeValue> albumAttributeValues = albumAttributeValueMapper.selectAlbumAttributeValueByAlbumId(id);
@@ -135,12 +140,12 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         log.info("腾讯云审核意见 = {}", suggestion);
         if ("pass".equals(suggestion)) {
             albumInfo.setStatus(SystemConstant.ALBUM_STATUS_PASS);
-            // TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
-        } else {
-            albumInfo.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
-            //TODO 发送MQ消息 通知 搜索服务 从ES引库删除
+            albumInfoMapper.updateById(albumInfo);
+            rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_UPPER, albumInfo.getId());
+            return;
         }
-        albumInfoMapper.updateById(albumInfo);
+        rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_LOWER, albumInfo.getId());
+        throw new GuiguException(500, "专辑标题或内容存在违规！");
     }
 
     @Override

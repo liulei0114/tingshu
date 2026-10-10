@@ -1,6 +1,7 @@
 package com.atguigu.tingshu.album.service;
 
 import com.atguigu.tingshu.model.album.BaseCategory1;
+import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.atguigu.tingshu.model.album.CategoryAttributeValue;
 import com.atguigu.tingshu.vo.album.CategoryInfoVo;
@@ -10,9 +11,11 @@ import java.util.List;
 
 public interface BaseCategoryService extends IService<BaseCategory1> {
 
-    List<CategoryInfoVo> getCategoryList();
+    List<CategoryInfoVo> getCategoryList(Long category1Id);
 
     List<CategoryAttributeValue> findAttributeByCategory1Id(Long category1Id);
 
     BaseCategoryView getCategoryView(Long category3Id);
+
+    List<BaseCategory3> findTopBaseCategory3(Long category1Id);
 }

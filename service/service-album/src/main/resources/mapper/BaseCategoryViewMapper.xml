@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+
+<mapper namespace="com.atguigu.tingshu.album.mapper.BaseCategoryViewMapper">
+
+
+    <select id="selectTopBaseCategory3" resultType="com.atguigu.tingshu.model.album.BaseCategory3">
+        select c3.*
+        from base_category1 c1
+                 inner join base_category2 c2 on c1.id = c2.category1_id
+                 inner join base_category3 c3 on c2.id = c3.category2_id
+        where c1.id = #{category1Id} and c3.is_top = 1
+        order by c3.order_num
+        limit 7;
+    </select>
+</mapper>
+

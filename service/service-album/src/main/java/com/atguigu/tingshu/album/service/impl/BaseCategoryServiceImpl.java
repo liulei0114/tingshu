@@ -34,10 +34,13 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     private BaseCategoryViewMapper baseCategoryViewMapper;
 
 
-    public List<CategoryInfoVo> getCategoryList() {
-        LambdaQueryWrapper<BaseCategory1> queryWrapper1 = new LambdaQueryWrapper<BaseCategory1>().orderByDesc(BaseCategory1::getOrderNum);
-        LambdaQueryWrapper<BaseCategory2> queryWrapper2 = new LambdaQueryWrapper<BaseCategory2>().orderByDesc(BaseCategory2::getOrderNum);
-        LambdaQueryWrapper<BaseCategory3> queryWrapper3 = new LambdaQueryWrapper<BaseCategory3>().orderByDesc(BaseCategory3::getOrderNum);
+    public List<CategoryInfoVo> getCategoryList(Long category1Id) {
+        LambdaQueryWrapper<BaseCategory1> queryWrapper1 = new LambdaQueryWrapper<BaseCategory1>().orderByAsc(BaseCategory1::getOrderNum);
+        if (category1Id != null) {
+            queryWrapper1.eq(BaseCategory1::getId, category1Id);
+        }
+        LambdaQueryWrapper<BaseCategory2> queryWrapper2 = new LambdaQueryWrapper<BaseCategory2>().orderByAsc(BaseCategory2::getOrderNum);
+        LambdaQueryWrapper<BaseCategory3> queryWrapper3 = new LambdaQueryWrapper<BaseCategory3>().orderByAsc(BaseCategory3::getOrderNum);
 
         ArrayList<CategoryInfoVo> result = new ArrayList<>();
         baseCategory1Mapper.selectList(queryWrapper1).stream().forEach(baseCategory1 -> {
@@ -86,6 +89,11 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     @Override
     public BaseCategoryView getCategoryView(Long category3Id) {
         return baseCategoryViewMapper.selectById(category3Id);
+    }
+
+    @Override
+    public List<BaseCategory3> findTopBaseCategory3(Long category1Id) {
+        return baseCategoryViewMapper.selectTopBaseCategory3(category1Id);
     }
 
 

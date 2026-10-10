@@ -1,14 +1,8 @@
 package com.atguigu.tingshu.album.service.impl;
 
-import com.atguigu.tingshu.album.mapper.BaseAttributeMapper;
-import com.atguigu.tingshu.album.mapper.BaseCategory1Mapper;
-import com.atguigu.tingshu.album.mapper.BaseCategory2Mapper;
-import com.atguigu.tingshu.album.mapper.BaseCategory3Mapper;
+import com.atguigu.tingshu.album.mapper.*;
 import com.atguigu.tingshu.album.service.BaseCategoryService;
-import com.atguigu.tingshu.model.album.BaseCategory1;
-import com.atguigu.tingshu.model.album.BaseCategory2;
-import com.atguigu.tingshu.model.album.BaseCategory3;
-import com.atguigu.tingshu.model.album.CategoryAttributeValue;
+import com.atguigu.tingshu.model.album.*;
 import com.atguigu.tingshu.vo.album.CategoryInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -35,6 +29,9 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
 
     @Autowired
     private BaseAttributeMapper baseAttributeMapper;
+
+    @Autowired
+    private BaseCategoryViewMapper baseCategoryViewMapper;
 
 
     public List<CategoryInfoVo> getCategoryList() {
@@ -84,6 +81,11 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     @Override
     public List<CategoryAttributeValue> findAttributeByCategory1Id(Long category1Id) {
         return baseAttributeMapper.selectAttributeValueByCategoryId(category1Id);
+    }
+
+    @Override
+    public BaseCategoryView getCategoryView(Long category3Id) {
+        return baseCategoryViewMapper.selectById(category3Id);
     }
 
 

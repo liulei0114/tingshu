@@ -110,6 +110,9 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
     @Override
     public AlbumInfo getAlbumInfo(Long id) {
         AlbumInfo albumInfo = albumInfoMapper.selectById(id);
+        if (albumInfo == null){
+            throw new GuiguException(500, "专辑不存在");
+        }
         List<AlbumAttributeValue> albumAttributeValues = albumAttributeValueMapper.selectAlbumAttributeValueByAlbumId(id);
         albumInfo.setAlbumAttributeValueVoList(albumAttributeValues);
         return albumInfo;

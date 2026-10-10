@@ -7,10 +7,8 @@
 
     <select id="selectTrackInfoList" resultType="com.atguigu.tingshu.vo.album.TrackListVo">
         select ti.*,
-        ai.album_title as albumTitle,
         ts.*
         from track_info ti
-        inner join album_info ai on ti.album_id = ai.id and ai.is_deleted = 0
         left join (select track_id,
         MAX(if(stat_type = '0701', stat_num, 0)) as play_stat_num,
         MAX(if(stat_type = '0702', stat_num, 0)) as collect_stat_num,

@@ -17,7 +17,6 @@ public class ServiceSearchTest {
             try {
                 searchService.upperAlbum(i);
             } catch (Exception e) {
-                continue;
             }
         }
     }

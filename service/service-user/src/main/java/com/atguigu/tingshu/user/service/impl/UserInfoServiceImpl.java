@@ -91,4 +91,21 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         }
         throw new GuiguException(500, "用户不存在");
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateUserInfo(UserInfoVo userInfoVo, String token) {
+        userInfoMapper.updateById(BeanUtil.copyProperties(userInfoVo, UserInfo.class));
+        String key = RedisConstant.USER_LOGIN_KEY_PREFIX + token;
+        UserInfoVo user = (UserInfoVo) redisTemplate.opsForValue().get(key);
+        user.setAvatarUrl(userInfoVo.getAvatarUrl());
+        user.setNickname(userInfoVo.getNickname());
+        Long remain = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        // 读剩余秒数
+        if (remain != null && remain > 0) {
+            redisTemplate.opsForValue().set(key, user, remain, TimeUnit.SECONDS);
+        } else {
+            redisTemplate.opsForValue().set(key, user, RedisConstant.USER_LOGIN_KEY_TIMEOUT, TimeUnit.SECONDS);
+        }
+    }
 }

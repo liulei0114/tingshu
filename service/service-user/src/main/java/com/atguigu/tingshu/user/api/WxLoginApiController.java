@@ -9,10 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -46,5 +43,15 @@ public class WxLoginApiController {
         Long userId = AuthContextHolder.getUserId();
         UserInfoVo userInfoVo = userInfoService.getUserInfo(userId);
         return Result.ok(userInfoVo);
+    }
+
+    @AuthLogin
+    @Operation(summary = "修改登录用户基本信息")
+    @PostMapping("/updateUser")
+    public Result updateUserInfo(@RequestBody UserInfoVo userInfoVo, @RequestHeader String token) {
+        Long userId = AuthContextHolder.getUserId();
+        userInfoVo.setId(userId);
+        userInfoService.updateUserInfo(userInfoVo, token);
+        return Result.ok();
     }
 }

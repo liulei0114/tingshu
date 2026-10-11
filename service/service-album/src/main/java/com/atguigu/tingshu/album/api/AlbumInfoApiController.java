@@ -78,6 +78,7 @@ public class AlbumInfoApiController {
 		return Result.ok();
 	}
 
+	@AuthLogin
 	@Operation(summary = "获取当前用户全部专辑列表")
 	@GetMapping("/albumInfo/findUserAllAlbumList")
 	public Result<List<AlbumInfo>> getUserAllAlbumList(){

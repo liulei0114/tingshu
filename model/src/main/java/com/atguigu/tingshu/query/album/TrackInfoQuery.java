@@ -7,6 +7,9 @@ import lombok.Data;
 @Schema(description = "声音信息")
 public class TrackInfoQuery {
 
+	@Schema(description = "专辑id")
+	private Long albumId;
+
 	@Schema(description = "标题")
 	private String trackTitle;
 

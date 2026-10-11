@@ -5,20 +5,27 @@ import cn.hutool.core.util.StrUtil;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.mapper.TrackStatMapper;
+import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.album.service.VodService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.execption.GuiguException;
+import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.model.album.TrackStat;
+import com.atguigu.tingshu.model.user.UserInfo;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
+import com.atguigu.tingshu.user.client.UserFeignClient;
+import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.album.TrackInfoVo;
 import com.atguigu.tingshu.vo.album.TrackListVo;
 import com.atguigu.tingshu.vo.album.TrackMediaInfoVo;
+import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -47,6 +55,12 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
 
     @Autowired
     private AuditService auditService;
+
+    @Autowired
+    private UserFeignClient userFeignClient;
+
+    @Autowired
+    private AlbumInfoService albumInfoService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -184,4 +198,80 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         vodService.deleteTrack(trackInfo.getMediaFileId());
 
     }
+
+    @Override
+    public IPage<AlbumTrackListVo> findAlbumTrackPage(IPage<AlbumTrackListVo> pageInfo, Long albumId, Long userId) {
+        TrackInfoQuery trackInfoQuery = new TrackInfoQuery();
+        trackInfoQuery.setAlbumId(albumId);
+        trackInfoQuery.setUserId(userId);
+        trackInfoQuery.setStatus(SystemConstant.TRACK_STATUS_PASS);
+
+        Page<TrackListVo> trackListVoPage = new Page<TrackListVo>();
+        trackListVoPage.setCurrent(pageInfo.getCurrent());
+        trackListVoPage.setSize(pageInfo.getSize());
+
+        Page<TrackListVo> trackList = trackInfoMapper.selectTrackInfoList2(trackListVoPage, trackInfoQuery);
+        pageInfo.setTotal(trackList.getTotal());
+        pageInfo.setPages(trackList.getPages());
+        List<AlbumTrackListVo> list = trackList.getRecords().stream().map(trackListVo -> {
+            return BeanUtil.copyProperties(trackListVo, AlbumTrackListVo.class);
+        }).toList();
+        /**
+         * 1.用户是否登录，
+         *   1.1 专辑免费，全部免费
+         *   1.2 专辑不免费，前五免费，其余付费
+         *
+         * 2.登录了，vip逻辑
+         *   2.1 是否是vip，专辑是否是vip免费
+         *      2.1.1 是，全部免费
+         * 3.付费逻辑
+         *   3.1 查询用户专辑和声音购买记录，有则免费，没有则收费
+         */
+        // 获取专辑信息
+        AlbumInfo albumInfo = albumInfoService.getAlbumInfo(albumId);
+
+        // 获取前几之后的ids
+        List<Long> ids = list.stream().filter(s -> s.getOrderNum() > albumInfo.getTracksForFree()).map(s -> s.getTrackId()).toList();
+
+        // 没有登录，前几免费，其余付费
+        if (userId == null) {
+            list = setTrackPayStatus(list, true, ids);
+            pageInfo.setRecords(list);
+            return pageInfo;
+        }
+
+        // 免费
+        if (SystemConstant.ALBUM_PAY_TYPE_FREE.equals(albumInfo.getPayType())) {
+            list = setTrackPayStatus(list, false, null);
+            pageInfo.setRecords(list);
+            return pageInfo;
+        }
+
+        Result<List<AlbumTrackListVo>> listResult = userFeignClient.userIsPaidTrack(userId, albumId, list);
+        if (listResult == null || listResult.getCode() != 200) {
+            log.error("远程调用【专辑服务（userIsPaidTrack）】失败,失败albumId:{}", albumId);
+            String message = listResult != null ? listResult.getMessage() : "";
+            throw new GuiguException(500, "远程调用【专辑服务（userIsPaidTrack）】失败," + message);
+        }
+        pageInfo.setRecords(listResult.getData());
+        return pageInfo;
+    }
+
+    public List<AlbumTrackListVo> setTrackPayStatus(List<AlbumTrackListVo> result, Boolean isShowPaidMark, List<Long> ids) {
+        if (ids != null) {
+            for (AlbumTrackListVo albumTrackListVo : result) {
+                if (ids.contains(albumTrackListVo.getTrackId())) {
+                    albumTrackListVo.setIsShowPaidMark(isShowPaidMark);
+                }
+            }
+        } else {
+            for (AlbumTrackListVo albumTrackListVo : result) {
+                albumTrackListVo.setIsShowPaidMark(isShowPaidMark);
+            }
+        }
+        return result;
+    }
+
+
+
 }

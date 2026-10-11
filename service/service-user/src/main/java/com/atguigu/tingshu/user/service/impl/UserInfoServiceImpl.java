@@ -3,15 +3,27 @@ package com.atguigu.tingshu.user.service.impl;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.IdUtil;
+import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.common.constant.RedisConstant;
+import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
 import com.atguigu.tingshu.common.rabbit.service.RabbitService;
+import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.common.util.AuthContextHolder;
+import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.user.UserInfo;
+import com.atguigu.tingshu.model.user.UserPaidAlbum;
+import com.atguigu.tingshu.model.user.UserPaidTrack;
 import com.atguigu.tingshu.user.mapper.UserInfoMapper;
+import com.atguigu.tingshu.user.mapper.UserPaidAlbumMapper;
+import com.atguigu.tingshu.user.mapper.UserPaidTrackMapper;
 import com.atguigu.tingshu.user.service.UserInfoService;
+import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +35,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Date;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,6 +58,15 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     @Autowired
     private RedisTemplate redisTemplate;
+
+    @Autowired
+    private AlbumFeignClient albumFeignClient;
+
+    @Autowired
+    private UserPaidAlbumMapper userPaidAlbumMapper;
+
+    @Autowired
+    private UserPaidTrackMapper userPaidTrackMapper;
 
 
     @Override
@@ -108,4 +133,74 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             redisTemplate.opsForValue().set(key, user, RedisConstant.USER_LOGIN_KEY_TIMEOUT, TimeUnit.SECONDS);
         }
     }
+
+    @Override
+    public List<AlbumTrackListVo> userIsPaidTrack(Long userId, Long albumId, List<AlbumTrackListVo> needCheckPayStatusTrackIdList) {
+        /**
+         * 1.登录了，vip逻辑
+         *   2.1 是否是vip，专辑是否是vip免费
+         *      2.1.1 是，全部免费
+         * 2.付费逻辑
+         *   3.1 查询用户专辑和声音购买记录，有则免费，没有则收费
+         */
+        // 获取专辑信息
+        Result<AlbumInfo> albumInfoResult = albumFeignClient.getAlbumInfo(albumId);
+        if (albumInfoResult == null || albumInfoResult.getCode() != 200) {
+            log.error("远程调用【专辑服务（getAlbumInfo）】失败,getAlbumInfo:{}", albumId);
+            String message = albumInfoResult != null ? albumInfoResult.getMessage() : "";
+            throw new GuiguException(500, "远程调用【专辑服务（getAlbumInfo）】失败," + message);
+        }
+        AlbumInfo albumInfo = albumInfoResult.getData();
+        // 用户信息
+        UserInfo userInfo = userInfoMapper.selectById(userId);
+
+        // 获取前几之后的ids
+        List<Long> ids = needCheckPayStatusTrackIdList.stream().filter(s -> s.getOrderNum() > albumInfo.getTracksForFree()).map(s->s.getTrackId()).collect(Collectors.toList());
+        // 是vip 并且专辑是vip免费
+        if (this.validateVipStatus(userInfo) && SystemConstant.ALBUM_PAY_TYPE_VIPFREE.equals(albumInfo.getPayType())) {
+            return setTrackPayStatus(needCheckPayStatusTrackIdList, false, null);
+        }
+        // 付费逻辑了，查询用户专辑和声音购买记录
+        UserPaidAlbum userPaidAlbum = userPaidAlbumMapper.selectOne(new LambdaQueryWrapper<UserPaidAlbum>().eq(UserPaidAlbum::getUserId, userId).eq(UserPaidAlbum::getAlbumId, albumId));
+        if (userPaidAlbum != null) {
+            return setTrackPayStatus(needCheckPayStatusTrackIdList, false, null);
+        }
+        List<UserPaidTrack> userPaidTracks = userPaidTrackMapper.selectList(new LambdaQueryWrapper<UserPaidTrack>().eq(UserPaidTrack::getUserId, userId).eq(UserPaidTrack::getAlbumId, albumId));
+        if (CollUtil.isNotEmpty(userPaidTracks)) {
+            List<Long> trackIds = userPaidTracks.stream().map(userPaidTrack -> userPaidTrack.getTrackId()).toList();
+            needCheckPayStatusTrackIdList.stream().filter(s -> s.getOrderNum() > albumInfo.getTracksForFree()).forEach(albumTrackListVo -> {
+                if (!trackIds.contains(albumTrackListVo.getTrackId())) {
+                    albumTrackListVo.setIsShowPaidMark(true);
+                }
+            });
+            return needCheckPayStatusTrackIdList;
+        }
+        return setTrackPayStatus(needCheckPayStatusTrackIdList, true, ids);
+    }
+
+    public List<AlbumTrackListVo> setTrackPayStatus(List<AlbumTrackListVo> result, Boolean isShowPaidMark, List<Long> ids) {
+        if (ids != null) {
+            for (AlbumTrackListVo albumTrackListVo : result) {
+                if (ids.contains(albumTrackListVo.getTrackId())) {
+                    albumTrackListVo.setIsShowPaidMark(isShowPaidMark);
+                }
+            }
+        } else {
+            for (AlbumTrackListVo albumTrackListVo : result) {
+                albumTrackListVo.setIsShowPaidMark(isShowPaidMark);
+            }
+        }
+        return result;
+    }
+
+    public Boolean validateVipStatus(UserInfo userInfo) {
+        if (userInfo == null) {
+            throw new GuiguException(500, "未查询到用户信息");
+        }
+        // 空安全处理：isVip为null按普通用户处理；vipExpireTime为null视为已过期，避免拆箱/空指针
+        return Objects.equals(userInfo.getIsVip(), 1)
+                && userInfo.getVipExpireTime() != null
+                && userInfo.getVipExpireTime().after(new Date());
+    }
+
 }

@@ -13,4 +13,7 @@ import org.apache.ibatis.annotations.Param;
 public interface TrackInfoMapper extends BaseMapper<TrackInfo> {
 
     Page<TrackListVo> selectTrackInfoList(Page<TrackListVo> page, @Param("query") TrackInfoQuery trackInfoQuery);
+
+    Page<TrackListVo> selectTrackInfoList2(Page<TrackListVo> page, @Param("query") TrackInfoQuery trackInfoQuery);
+
 }

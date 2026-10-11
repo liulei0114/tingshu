@@ -6,6 +6,7 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import com.atguigu.tingshu.vo.album.CategoryInfoVo;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,4 +33,7 @@ public interface AlbumFeignClient {
 
     @GetMapping("/api/album/category/findTopBaseCategory3/{category1Id}")
     Result<List<BaseCategory3>> findTopBaseCategory3(@PathVariable Long category1Id);
+
+    @GetMapping("/api/album/albumInfo/getAlbumStatVo/{albumId}")
+    Result<AlbumStatVo> getAlbumStatVo(@PathVariable Long albumId);
 }

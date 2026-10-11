@@ -18,11 +18,33 @@
         where is_deleted = 0
         group by track_id) ts on ti.id = ts.track_id
         <where>
-            ti.is_deleted = 0 and ti.user_id = #{query.userId}
+            ti.is_deleted = 0
+            <if test="query.userId != null">and ti.user_id = #{query.userId}</if>
+            <if test="query.albumId != null">and ti.album_id = #{query.albumId}</if>
             <if test="query.status != null and query.status != ''">and ti.status = #{query.status}</if>
             <if test="query.trackTitle != null and query.trackTitle != ''">and ti.track_title = #{query.trackTitle}</if>
         </where>
         order by ti.id desc
+    </select>
+
+    <select id="selectTrackInfoList2" resultType="com.atguigu.tingshu.vo.album.TrackListVo">
+        select ti.*,
+        ts.*
+        from track_info ti
+        left join (select track_id,
+        MAX(if(stat_type = '0701', stat_num, 0)) as play_stat_num,
+        MAX(if(stat_type = '0704', stat_num, 0)) as comment_stat_num
+        from track_stat
+        where is_deleted = 0
+        group by track_id) ts on ti.id = ts.track_id
+        <where>
+            ti.is_deleted = 0
+            <if test="query.userId != null">and ti.user_id = #{query.userId}</if>
+            <if test="query.albumId != null">and ti.album_id = #{query.albumId}</if>
+            <if test="query.status != null and query.status != ''">and ti.status = #{query.status}</if>
+            <if test="query.trackTitle != null and query.trackTitle != ''">and ti.track_title = #{query.trackTitle}</if>
+        </where>
+        order by ti.order_num asc
     </select>
 
 

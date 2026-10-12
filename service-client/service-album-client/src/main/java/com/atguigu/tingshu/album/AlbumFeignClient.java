@@ -6,6 +6,7 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import com.atguigu.tingshu.vo.album.CategoryInfoVo;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -36,4 +37,7 @@ public interface AlbumFeignClient {
 
     @GetMapping("/api/album/albumInfo/getAlbumStatVo/{albumId}")
     Result<AlbumStatVo> getAlbumStatVo(@PathVariable Long albumId);
+
+    @GetMapping("/api/album/trackInfo/getTrackInfo/{id}")
+    Result<TrackInfo> getTrackInfo(@PathVariable Long id);
 }

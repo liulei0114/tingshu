@@ -6,6 +6,7 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import com.atguigu.tingshu.vo.album.CategoryInfoVo;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,12 @@ public class AlbumDegradeFeignClient implements AlbumFeignClient {
     @Override
     public Result<AlbumStatVo> getAlbumStatVo(Long albumId) {
         log.error("[专辑服务]提供远程调用方法getAlbumStatVo执行服务降级, albumId: {}", albumId);
+        return null;
+    }
+
+    @Override
+    public Result<TrackInfo> getTrackInfo(Long id) {
+        log.error("[专辑服务]提供远程调用方法getTrackInfo执行服务降级, id: {}", id);
         return null;
     }
 

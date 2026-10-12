@@ -46,6 +46,16 @@
         </where>
         order by ti.order_num asc
     </select>
+    <select id="getTrackStatVo" resultType="com.atguigu.tingshu.vo.album.TrackStatVo">
+        select track_id,
+               max(if(stat_type = '0701', stat_num, 0)) playStatNum,
+               max(if(stat_type = '0702', stat_num, 0)) collectStatNum,
+               max(if(stat_type = '0703', stat_num, 0)) praiseStatNum,
+               max(if(stat_type = '0704', stat_num, 0)) commentStatNum
+        from track_stat
+        where track_id = #{trackId}
+          and is_deleted = 0
+    </select>
 
 
 </mapper>

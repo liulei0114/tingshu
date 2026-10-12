@@ -3,6 +3,7 @@ package com.atguigu.tingshu.album.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
+import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.mapper.TrackStatMapper;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
@@ -13,15 +14,13 @@ import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.AlbumStat;
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.model.album.TrackStat;
 import com.atguigu.tingshu.model.user.UserInfo;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
 import com.atguigu.tingshu.user.client.UserFeignClient;
-import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
-import com.atguigu.tingshu.vo.album.TrackInfoVo;
-import com.atguigu.tingshu.vo.album.TrackListVo;
-import com.atguigu.tingshu.vo.album.TrackMediaInfoVo;
+import com.atguigu.tingshu.vo.album.*;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -61,6 +60,10 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
 
     @Autowired
     private AlbumInfoService albumInfoService;
+
+    @Autowired
+    private AlbumStatMapper albumStatMapper;
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -255,6 +258,48 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         }
         pageInfo.setRecords(listResult.getData());
         return pageInfo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateTrackStat(TrackStatMqVo mqVo) {
+        //1.更新声音统计数值
+        trackStatMapper.update(
+                null,
+                new LambdaUpdateWrapper<TrackStat>()
+                        .eq(TrackStat::getTrackId, mqVo.getTrackId())
+                        .eq(TrackStat::getStatType, mqVo.getStatType())
+                        .setSql("stat_num = stat_num + " + mqVo.getCount())
+        );
+
+        //2.如果是"播放"or"评论"还需要更新专辑统计数值
+        if (SystemConstant.TRACK_STAT_PLAY.equals(mqVo.getStatType())) {
+            //更新专辑统计表播放量
+            albumStatMapper.update(
+                    null,
+                    new LambdaUpdateWrapper<AlbumStat>()
+                            .eq(AlbumStat::getAlbumId, mqVo.getAlbumId())
+                            .eq(AlbumStat::getStatType, SystemConstant.ALBUM_STAT_PLAY)
+                            .setSql("stat_num = stat_num + " + mqVo.getCount())
+            );
+        }
+        if (SystemConstant.TRACK_STAT_COMMENT.equals(mqVo.getStatType())) {
+            //更新专辑统计表评论量
+            albumStatMapper.update(
+                    null,
+                    new LambdaUpdateWrapper<AlbumStat>()
+                            .eq(AlbumStat::getAlbumId, mqVo.getAlbumId())
+                            .eq(AlbumStat::getStatType, SystemConstant.ALBUM_STAT_COMMENT)
+                            .setSql("stat_num = stat_num + " + mqVo.getCount())
+            );
+        }
+
+    }
+
+    @Override
+    public TrackStatVo getTrackStatVo(Long trackId) {
+        return trackInfoMapper.getTrackStatVo(trackId);
+
     }
 
     public List<AlbumTrackListVo> setTrackPayStatus(List<AlbumTrackListVo> result, Boolean isShowPaidMark, List<Long> ids) {

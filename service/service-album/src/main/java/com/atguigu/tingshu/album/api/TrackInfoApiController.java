@@ -9,6 +9,7 @@ import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
 import com.atguigu.tingshu.vo.album.TrackInfoVo;
 import com.atguigu.tingshu.vo.album.TrackListVo;
+import com.atguigu.tingshu.vo.album.TrackStatVo;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -86,6 +87,14 @@ public class TrackInfoApiController {
     public Result removeTrackInfo(@PathVariable Long id){
         trackInfoService.removeTrackInfo(id);
         return Result.ok();
+    }
+
+
+    @Operation(summary = "查询声音统计信息")
+    @GetMapping("/trackInfo/getTrackStatVo/{trackId}")
+    public Result<TrackStatVo> getTrackStatVo(@PathVariable Long trackId){
+        TrackStatVo trackStatVo = trackInfoService.getTrackStatVo(trackId);
+        return Result.ok(trackStatVo);
     }
 
 }

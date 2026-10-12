@@ -4,6 +4,7 @@ import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.IdUtil;
 import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.common.constant.RedisConstant;
@@ -12,22 +13,26 @@ import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
 import com.atguigu.tingshu.common.rabbit.service.RabbitService;
 import com.atguigu.tingshu.common.result.Result;
-import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.model.user.UserInfo;
+import com.atguigu.tingshu.model.user.UserListenProcess;
 import com.atguigu.tingshu.model.user.UserPaidAlbum;
 import com.atguigu.tingshu.model.user.UserPaidTrack;
 import com.atguigu.tingshu.user.mapper.UserInfoMapper;
 import com.atguigu.tingshu.user.mapper.UserPaidAlbumMapper;
 import com.atguigu.tingshu.user.mapper.UserPaidTrackMapper;
 import com.atguigu.tingshu.user.service.UserInfoService;
+import com.atguigu.tingshu.user.service.UserListenProcessService;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
+import com.atguigu.tingshu.vo.album.TrackStatMqVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.atguigu.tingshu.vo.user.UserListenProcessVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import me.chanjar.weixin.common.service.WxService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -67,6 +72,9 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     @Autowired
     private UserPaidTrackMapper userPaidTrackMapper;
+
+    @Autowired
+    private UserListenProcessService userListenProcessService;
 
 
     @Override
@@ -176,6 +184,55 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             return needCheckPayStatusTrackIdList;
         }
         return setTrackPayStatus(needCheckPayStatusTrackIdList, true, ids);
+    }
+
+    @Override
+    public BigDecimal getTrackBreakSecond(Long userId, Long trackId) {
+
+        UserListenProcess userListenProcess = userListenProcessService.getUserListenProcess(userId, trackId);
+        if (userListenProcess != null) {
+            return userListenProcess.getBreakSecond();
+        }
+
+        return BigDecimal.valueOf(0);
+    }
+
+    @Override
+    public void updateUserListenProcess(Long userId, UserListenProcessVo userListenProcessVo) {
+        UserListenProcess userListenProcess = userListenProcessService.getUserListenProcess(userId, userListenProcessVo.getTrackId());
+        if (userListenProcess == null) {
+            userListenProcess = new UserListenProcess();
+            userListenProcess.setId(String.valueOf(userId) + '_' + String.valueOf(userListenProcessVo.getTrackId()));
+            userListenProcess.setUserId(userId);
+            userListenProcess.setTrackId(userListenProcessVo.getTrackId());
+            userListenProcess.setBreakSecond(BigDecimal.valueOf(0));
+            userListenProcess.setIsShow(1);
+            userListenProcess.setAlbumId(userListenProcessVo.getAlbumId());
+            userListenProcess.setCreateTime(new Date());
+            userListenProcess.setUpdateTime(new Date());
+        }else{
+            userListenProcess.setBreakSecond(userListenProcessVo.getBreakSecond());
+            userListenProcess.setUpdateTime(new Date());
+        }
+        userListenProcessService.saveOrUpdateUserListenProcess(userListenProcess);
+
+        String redisKey
+                = RedisConstant.USER_TRACK_REPEAT_STAT_PREFIX + userId + "_" + userListenProcessVo.getAlbumId() + "_" + userListenProcessVo.getTrackId();
+        //5.1.2 采用Redis提供set k v ex nx  命令，设置RedisKey，设置过期时间，写入成功则发送MQ消息，更新统计数值；写入失败则忽略
+        Date date = new Date();
+        long ttl = DateUtil.endOfDay(date).getTime() - date.getTime();
+        Boolean flag = redisTemplate.opsForValue().setIfAbsent(redisKey, "1", ttl, TimeUnit.MILLISECONDS);
+        if (flag) {
+            //5.2.1 构建MQ消息VO对象 包含：专辑ID、声音ID、统计类型、增量数值、businessNo-UUID（用于消费者端幂等性处理），TODO VO必须序列化接口
+            TrackStatMqVo mqVo = new TrackStatMqVo();
+            mqVo.setBusinessNo(IdUtil.fastUUID());
+            mqVo.setAlbumId(userListenProcessVo.getAlbumId());
+            mqVo.setTrackId(userListenProcessVo.getTrackId());
+            mqVo.setStatType(SystemConstant.TRACK_STAT_PLAY);
+            mqVo.setCount(1);
+            //5.2.2 发送MQ消息
+            rabbitService.sendMessage(MqConst.EXCHANGE_TRACK, MqConst.ROUTING_TRACK_STAT_UPDATE, mqVo);
+        }
     }
 
     public List<AlbumTrackListVo> setTrackPayStatus(List<AlbumTrackListVo> result, Boolean isShowPaidMark, List<Long> ids) {

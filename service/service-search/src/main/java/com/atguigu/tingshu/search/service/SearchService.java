@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.model.search.SuggestIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
+import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
 
 import java.io.IOException;
@@ -44,4 +45,6 @@ public interface SearchService {
     Collection<String> parseSuggestResult(SearchResponse<SuggestIndex> searchResponse, String s);
 
     void updateLatelyAlbumRanking();
+
+    List<AlbumInfoIndexVo> getRankingList(Long category1Id, String dimension);
 }

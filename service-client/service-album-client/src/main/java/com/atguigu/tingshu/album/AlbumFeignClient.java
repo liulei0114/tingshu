@@ -38,6 +38,6 @@ public interface AlbumFeignClient {
     @GetMapping("/api/album/trackInfo/getTrackInfo/{id}")
     Result<TrackInfo> getTrackInfo(@PathVariable Long id);
 
-    @GetMapping("/category/findAllCategory1")
+    @GetMapping("/api/album/category/findAllCategory1")
     Result<List<BaseCategory1>> getAllCategory1();
 }

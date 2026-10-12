@@ -5,6 +5,7 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.result.ResultCodeEnum;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.search.service.SearchService;
+import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -80,6 +81,13 @@ public class SearchApiController {
     public Result updateLatelyAlbumRanking() {
         searchService.updateLatelyAlbumRanking();
         return Result.ok();
+    }
+
+    @Operation(summary = "获取不同分类下不同排行维度TOP20")
+    @GetMapping("/albumInfo/findRankingList/{category1Id}/{dimension}")
+    public Result<List<AlbumInfoIndexVo>> getRankingList(@PathVariable Long category1Id, @PathVariable String dimension) {
+        List<AlbumInfoIndexVo> list = searchService.getRankingList(category1Id, dimension);
+        return Result.ok(list);
     }
 
 

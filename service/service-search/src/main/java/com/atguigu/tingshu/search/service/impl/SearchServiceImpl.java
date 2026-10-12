@@ -19,9 +19,11 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import co.elastic.clients.elasticsearch.core.search.Suggestion;
 import com.atguigu.tingshu.album.AlbumFeignClient;
+import com.atguigu.tingshu.common.constant.RedisConstant;
 import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.BaseCategory1;
 import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
@@ -38,6 +40,7 @@ import com.atguigu.tingshu.vo.user.UserInfoVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.suggest.Completion;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
@@ -74,6 +77,9 @@ public class SearchServiceImpl implements SearchService {
 
     @Autowired
     private ElasticsearchClient elasticsearchClient;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @Override
     public void upperAlbum(Long albumId) {
@@ -154,13 +160,7 @@ public class SearchServiceImpl implements SearchService {
             // 6.保存专辑索引库文档对象
         }, taskExecutor);
 
-        CompletableFuture.allOf(
-                        completableFutureAlbumInfo,
-                        completableFutureAlbumCategory,
-                        completableFutureUserInfo,
-                        completableFutureStat
-                )
-                .join();
+        CompletableFuture.allOf(completableFutureAlbumInfo, completableFutureAlbumCategory, completableFutureUserInfo, completableFutureStat).join();
 
         albumInfoIndexRepository.save(albumInfoIndex);
 
@@ -246,29 +246,17 @@ public class SearchServiceImpl implements SearchService {
         }
         List<BaseCategory3> topBaseCategory3 = topBaseCategory3Result.getData();
         // 1.2 获取置顶三级分类ID列表
-        List<FieldValue> fieldValueList = topBaseCategory3
-                .stream()
-                .map(c3 -> FieldValue.of(c3.getId()))
-                .collect(Collectors.toList());
+        List<FieldValue> fieldValueList = topBaseCategory3.stream().map(c3 -> FieldValue.of(c3.getId())).collect(Collectors.toList());
         // 1.3 构建ES检索DSL：
         // 按置顶三级分类ID列表过滤 + 按category3Id分组聚合（取前10个分组） + 桶内按hotScore降序取前10个专辑
         if (CollUtil.isEmpty(fieldValueList)) {
             return new ArrayList<>();
         }
-        SearchRequest searchRequest = new SearchRequest.Builder()
-                .index(INDEX_NAME)
+        SearchRequest searchRequest = new SearchRequest.Builder().index(INDEX_NAME)
                 // 聚合查询不需要原始文档，size=0提速
-                .size(0)
-                .query(query -> query.bool(bool -> bool.filter(
-                        filter -> filter.terms(terms -> terms.field("category3Id")
-                                .terms(termsValue -> termsValue.value(fieldValueList))))))
-                .aggregations("category3Id_agg", aggregation -> aggregation
+                .size(0).query(query -> query.bool(bool -> bool.filter(filter -> filter.terms(terms -> terms.field("category3Id").terms(termsValue -> termsValue.value(fieldValueList)))))).aggregations("category3Id_agg", aggregation -> aggregation
                         // 聚合桶数=置顶分类数，保证每个置顶分类都有对应桶
-                        .terms(termsAgg -> termsAgg.field("category3Id").size(fieldValueList.size()))
-                        .aggregations("topHits", subAggregation -> subAggregation.topHits(topHits -> topHits
-                                .size(10)
-                                .sort(sort -> sort.field(fieldSort -> fieldSort.field("hotScore").order(SortOrder.Desc))))))
-                .build();
+                        .terms(termsAgg -> termsAgg.field("category3Id").size(fieldValueList.size())).aggregations("topHits", subAggregation -> subAggregation.topHits(topHits -> topHits.size(10).sort(sort -> sort.field(fieldSort -> fieldSort.field("hotScore").order(SortOrder.Desc)))))).build();
 
         // 2.执行聚合检索
         SearchResponse<Void> searchResponse;
@@ -284,14 +272,12 @@ public class SearchServiceImpl implements SearchService {
         Map<Long, List<AlbumInfoIndexVo>> category3AlbumListMap = new HashMap<>();
         LongTermsAggregate longTermsAggregate = searchResponse.aggregations().get("category3Id_agg").lterms();
         for (LongTermsBucket longTermsBucket : longTermsAggregate.buckets().array()) {
-            List<AlbumInfoIndexVo> albumInfoIndexVoList = longTermsBucket.aggregations().get("topHits")
-                    .topHits().hits().hits().stream()
-                    .map(hit -> {
-                        AlbumInfoIndex albumInfoIndex = hit.source().to(AlbumInfoIndex.class);
-                        AlbumInfoIndexVo albumInfoIndexVo = new AlbumInfoIndexVo();
-                        BeanUtil.copyProperties(albumInfoIndex, albumInfoIndexVo);
-                        return albumInfoIndexVo;
-                    }).collect(Collectors.toList());
+            List<AlbumInfoIndexVo> albumInfoIndexVoList = longTermsBucket.aggregations().get("topHits").topHits().hits().hits().stream().map(hit -> {
+                AlbumInfoIndex albumInfoIndex = hit.source().to(AlbumInfoIndex.class);
+                AlbumInfoIndexVo albumInfoIndexVo = new AlbumInfoIndexVo();
+                BeanUtil.copyProperties(albumInfoIndex, albumInfoIndexVo);
+                return albumInfoIndexVo;
+            }).collect(Collectors.toList());
             category3AlbumListMap.put(longTermsBucket.key(), albumInfoIndexVoList);
         }
 
@@ -311,14 +297,7 @@ public class SearchServiceImpl implements SearchService {
     public List<String> completeSuggest(String keyword) {
         try {
             // 1.发起自动补全请求
-            SearchResponse<SuggestIndex> searchResponse = elasticsearchClient.search(s ->
-                            s.index(SUGGEST_INDEX)
-                                    .suggest(
-                                            s1 -> s1.suggesters("letter-suggest", fs -> fs.prefix(keyword).completion(c -> c.field("keywordSequence").size(10).skipDuplicates(true)))
-                                                    .suggesters("pinyin-suggest", s2 -> s2.prefix(keyword).completion(c -> c.field("keywordPinyin").size(10).skipDuplicates(true)))
-                                                    .suggesters("keyword-suggest", s2 -> s2.prefix(keyword).completion(c -> c.field("keyword").size(10).skipDuplicates(true)))
-                                    )
-                    , SuggestIndex.class);
+            SearchResponse<SuggestIndex> searchResponse = elasticsearchClient.search(s -> s.index(SUGGEST_INDEX).suggest(s1 -> s1.suggesters("letter-suggest", fs -> fs.prefix(keyword).completion(c -> c.field("keywordSequence").size(10).skipDuplicates(true))).suggesters("pinyin-suggest", s2 -> s2.prefix(keyword).completion(c -> c.field("keywordPinyin").size(10).skipDuplicates(true))).suggesters("keyword-suggest", s2 -> s2.prefix(keyword).completion(c -> c.field("keyword").size(10).skipDuplicates(true)))), SuggestIndex.class);
             // 2.解析ES自动补全结果
             Set<String> hashSet = new HashSet<>();
             // 2.1 解析建议结果-通过不同建议参数名获取汉字、拼音等提示词结果
@@ -328,12 +307,7 @@ public class SearchServiceImpl implements SearchService {
             // 2.2 如果解析建议提示词列表长度小于10，采用全文查询尝试补全到10个
             if (hashSet.size() < 10) {
                 // 2.2.1 根据用户录入字符进行全文检索
-                SearchResponse<AlbumInfoIndex> matchSearchResponse = elasticsearchClient.search(
-                        s -> s.index(INDEX_NAME)
-                                .query(q -> q.match(m -> m.field("albumTitle").query(keyword)))
-                                .size(10)
-                        , AlbumInfoIndex.class
-                );
+                SearchResponse<AlbumInfoIndex> matchSearchResponse = elasticsearchClient.search(s -> s.index(INDEX_NAME).query(q -> q.match(m -> m.field("albumTitle").query(keyword))).size(10), AlbumInfoIndex.class);
                 HitsMetadata<AlbumInfoIndex> hits = matchSearchResponse.hits();
                 List<Hit<AlbumInfoIndex>> hitList = hits.hits();
                 if (CollectionUtil.isNotEmpty(hitList)) {
@@ -378,7 +352,53 @@ public class SearchServiceImpl implements SearchService {
 
     @Override
     public void updateLatelyAlbumRanking() {
+        try {
+            Result<List<BaseCategory1>> allCategory1Result = albumFeignClient.getAllCategory1();
+            if (allCategory1Result == null || allCategory1Result.getCode() != 200) {
+                throw new GuiguException(500, "service-album调用失败");
+            }
+            List<BaseCategory1> baseCategory1List = allCategory1Result.getData();
+            String[] rankingDimensionArray = new String[]{"hotScore", "playStatNum", "subscribeStatNum", "buyStatNum", "commentStatNum"};
+            for (BaseCategory1 baseCategory1 : baseCategory1List) {
 
+                for (String key : rankingDimensionArray) {
+                    SearchRequest searchRequest = new SearchRequest.Builder().index(INDEX_NAME).size(20)                                              // 取20条
+                            .query(query -> query.bool(bool -> bool.filter(filter -> filter.term(term -> term.field("category1Id").value(baseCategory1.getId()))))).sort(sort -> sort.field(field -> field.field(key).order(SortOrder.Desc))).build();
+
+                    SearchResponse<AlbumInfoIndex> searchResponse = elasticsearchClient.search(searchRequest, AlbumInfoIndex.class);
+
+                    // 遍历结果
+                    // 注意：必须用Collectors.toList()返回ArrayList（非final类型，序列化时带类型id可正常反序列化），
+                    // .toList()返回的ImmutableCollections$ListN是final类型，GenericJackson2JsonRedisSerializer不会写入类型id，
+                    // 反序列化时会报 MismatchedInputException: Unexpected token (START_OBJECT), expected VALUE_STRING
+                    List<AlbumInfoIndex> list = searchResponse.hits().hits().stream().map(hit -> {
+                        AlbumInfoIndex album = hit.source();
+                        return album;
+                    }).collect(Collectors.toList());
+                    String redisKey = RedisConstant.RANKING_KEY_PREFIX + baseCategory1.getId();
+                    redisTemplate.opsForHash().put(redisKey, key, list);
+                }
+            }
+        } catch (Exception e) {
+            log.error("更新Redis小时榜失败！");
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    @Override
+    public List<AlbumInfoIndexVo> getRankingList(Long category1Id, String dimension) {
+        String redisKey = RedisConstant.RANKING_KEY_PREFIX + category1Id;
+        Boolean hasKey = redisTemplate.hasKey(redisKey);
+        if (hasKey) {
+            List<AlbumInfoIndex> list = (List<AlbumInfoIndex>) redisTemplate.opsForHash().get(redisKey, dimension);
+            List<AlbumInfoIndexVo> albumInfoIndexVoList = list
+                    .stream()
+                    .map(albumInfoIndex -> BeanUtil.copyProperties(albumInfoIndex, AlbumInfoIndexVo.class))
+                    .collect(Collectors.toList());
+            return albumInfoIndexVoList;
+        }
+        return null;
     }
 
     @Override
@@ -395,38 +415,24 @@ public class SearchServiceImpl implements SearchService {
         BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
         // 2.1 关键字检索（专辑名称/简介 多字段分词匹配）
         if (StrUtil.isNotBlank(albumIndexQuery.getKeyword())) {
-            boolQueryBuilder.must(m -> m.multiMatch(
-                    multiMatchQuery -> multiMatchQuery
-                            .query(albumIndexQuery.getKeyword())
-                            .fields("albumTitle", "albumIntro")
-            ));
+            boolQueryBuilder.must(m -> m.multiMatch(multiMatchQuery -> multiMatchQuery.query(albumIndexQuery.getKeyword()).fields("albumTitle", "albumIntro")));
             // 关键字高亮：命中词项用红色字体标注
-            builder.highlight(highlight -> highlight
-                    .fields("albumTitle", highlightField -> highlightField
-                            .preTags("<span style='color:red'>")
-                            .postTags("</span>"))
-            );
+            builder.highlight(highlight -> highlight.fields("albumTitle", highlightField -> highlightField.preTags("<span style='color:red'>").postTags("</span>")));
         } else {
             boolQueryBuilder.must(m -> m.matchAll(matchAllQuery -> matchAllQuery));
         }
 
         // 2.2 一级分类过滤
         if (albumIndexQuery.getCategory1Id() != null) {
-            boolQueryBuilder.filter(f -> f.term(
-                    termQuery -> termQuery.field("category1Id").value(albumIndexQuery.getCategory1Id())
-            ));
+            boolQueryBuilder.filter(f -> f.term(termQuery -> termQuery.field("category1Id").value(albumIndexQuery.getCategory1Id())));
         }
         // 2.3 二级分类过滤
         if (albumIndexQuery.getCategory2Id() != null) {
-            boolQueryBuilder.filter(f -> f.term(
-                    termQuery -> termQuery.field("category2Id").value(albumIndexQuery.getCategory2Id())
-            ));
+            boolQueryBuilder.filter(f -> f.term(termQuery -> termQuery.field("category2Id").value(albumIndexQuery.getCategory2Id())));
         }
         // 2.4 三级分类过滤
         if (albumIndexQuery.getCategory3Id() != null) {
-            boolQueryBuilder.filter(f -> f.term(
-                    termQuery -> termQuery.field("category3Id").value(albumIndexQuery.getCategory3Id())
-            ));
+            boolQueryBuilder.filter(f -> f.term(termQuery -> termQuery.field("category3Id").value(albumIndexQuery.getCategory3Id())));
         }
 
         // 2.5 专辑属性过滤（属性id:属性值id  嵌套查询）
@@ -435,15 +441,7 @@ public class SearchServiceImpl implements SearchService {
                 String[] attributeSplit = attribute.split(":");
                 long attributeId = Long.parseLong(attributeSplit[0]);
                 long valueId = Long.parseLong(attributeSplit[1]);
-                boolQueryBuilder.filter(f -> f.nested(nestedQuery -> nestedQuery
-                        .path("attributeValueIndexList")
-                        .query(nq -> nq.bool(nb -> nb
-                                .must(m -> m.term(termQuery -> termQuery
-                                        .field("attributeValueIndexList.attributeId").value(attributeId)))
-                                .must(m -> m.term(termQuery -> termQuery
-                                        .field("attributeValueIndexList.valueId").value(valueId)))
-                        ))
-                ));
+                boolQueryBuilder.filter(f -> f.nested(nestedQuery -> nestedQuery.path("attributeValueIndexList").query(nq -> nq.bool(nb -> nb.must(m -> m.term(termQuery -> termQuery.field("attributeValueIndexList.attributeId").value(attributeId))).must(m -> m.term(termQuery -> termQuery.field("attributeValueIndexList.valueId").value(valueId)))))));
             }
         }
         builder.query(query -> query.bool(boolQueryBuilder.build()));
@@ -459,9 +457,7 @@ public class SearchServiceImpl implements SearchService {
             };
             if (StrUtil.isNotBlank(orderField)) {
                 SortOrder sortOrder = "desc".equalsIgnoreCase(orderSplit[1]) ? SortOrder.Desc : SortOrder.Asc;
-                builder.sort(sortOption -> sortOption.field(
-                        fieldSort -> fieldSort.field(orderField).order(sortOrder)
-                ));
+                builder.sort(sortOption -> sortOption.field(fieldSort -> fieldSort.field(orderField).order(sortOrder)));
             }
         }
 

@@ -26,4 +26,6 @@ public interface AlbumInfoService extends IService<AlbumInfo> {
     List<AlbumInfo> findUserAllAlbum(Long userId);
 
     AlbumStatVo getAlbumStatVo(Long albumId);
+
+    AlbumInfo getAlbumInfoFromDbAndCache(Long id);
 }

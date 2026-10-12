@@ -2,12 +2,15 @@ package com.atguigu.tingshu.album.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.RandomUtil;
 import com.atguigu.tingshu.album.mapper.AlbumAttributeValueMapper;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.album.service.AuditService;
+import com.atguigu.tingshu.common.cache.RedissonCache;
+import com.atguigu.tingshu.common.constant.RedisConstant;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
@@ -26,13 +29,17 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -56,6 +63,12 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
     @Autowired
     private RabbitService rabbitService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    @Autowired
+    private RedissonClient redissonClient;
 
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     @Override
@@ -115,6 +128,45 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
     @Override
     public AlbumInfo getAlbumInfo(Long id) {
+        // 从redis 里面获取
+        String redisKey = RedisConstant.ALBUM_INFO_PREFIX + id;
+
+        Object o = redisTemplate.opsForValue().get(redisKey);
+        if (o != null) {
+            return (AlbumInfo) o;
+        }
+        String lockKey = redisKey + RedisConstant.CACHE_LOCK_SUFFIX;
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            // 获取锁
+            boolean isLocked = lock.tryLock();
+            if (!isLocked) {
+                //6.获取分布式锁失败，进行自旋（自旋可能获取锁成功线程会将业务数据已经放入缓存）
+                // 获取锁失败
+                return this.getAlbumInfo(id);
+            }
+            // 获取锁成功
+            AlbumInfo albumInfo = albumInfoMapper.selectById(id);
+            if (albumInfo == null) {
+                throw new GuiguException(500, "专辑不存在");
+            }
+            List<AlbumAttributeValue> albumAttributeValues = albumAttributeValueMapper.selectAlbumAttributeValueByAlbumId(id);
+            albumInfo.setAlbumAttributeValueVoList(albumAttributeValues);
+            int ttl = RandomUtil.randomInt(100, 600);
+            redisTemplate.opsForValue().set(redisKey, albumInfo, RedisConstant.ALBUM_TIMEOUT + ttl, TimeUnit.MINUTES);
+            return albumInfo;
+        } catch (Exception e) {
+            log.error("获取锁失败", e);
+            return this.getAlbumInfoFromDbAndCache(id);
+        } finally {
+            // 释放锁
+            lock.unlock();
+        }
+
+    }
+
+    @Override
+    public AlbumInfo getAlbumInfoFromDbAndCache(Long id) {
         AlbumInfo albumInfo = albumInfoMapper.selectById(id);
         if (albumInfo == null) {
             throw new GuiguException(500, "专辑不存在");
@@ -158,6 +210,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
     }
 
     @Override
+    @RedissonCache(prefix = RedisConstant.ALBUM_INFO_PREFIX)
     public AlbumStatVo getAlbumStatVo(Long albumId) {
         AlbumStatVo albumStatVo = albumStatMapper.selectAlbumStatVo(albumId);
         return albumStatVo;

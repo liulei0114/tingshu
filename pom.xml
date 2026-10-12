@@ -21,6 +21,7 @@
         <module>service</module>
         <module>server-gateway</module>
         <module>service-client</module>
+        <module>service/service-cdc</module>
     </modules>
 
     <properties>

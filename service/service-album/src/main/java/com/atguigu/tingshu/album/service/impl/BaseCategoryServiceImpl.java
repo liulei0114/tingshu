@@ -2,6 +2,7 @@ package com.atguigu.tingshu.album.service.impl;
 
 import com.atguigu.tingshu.album.mapper.*;
 import com.atguigu.tingshu.album.service.BaseCategoryService;
+import com.atguigu.tingshu.common.cache.RedissonCache;
 import com.atguigu.tingshu.model.album.*;
 import com.atguigu.tingshu.vo.album.CategoryInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -34,6 +35,7 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     private BaseCategoryViewMapper baseCategoryViewMapper;
 
 
+    @RedissonCache(prefix = "category:categoryby1Id:")
     public List<CategoryInfoVo> getCategoryList(Long category1Id) {
         LambdaQueryWrapper<BaseCategory1> queryWrapper1 = new LambdaQueryWrapper<BaseCategory1>().orderByAsc(BaseCategory1::getOrderNum);
         if (category1Id != null) {

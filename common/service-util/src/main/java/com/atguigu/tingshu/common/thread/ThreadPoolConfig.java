@@ -1,7 +1,10 @@
 package com.atguigu.tingshu.common.thread;
 
 
+import com.atguigu.tingshu.common.zipkin.ZipkinHelper;
+import com.atguigu.tingshu.common.zipkin.ZipkinTaskDecorator;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -17,7 +20,7 @@ public class ThreadPoolConfig {
      * 使用方式：@Async("taskExecutor")，配合启动类/配置类的 @EnableAsync
      */
     @Bean("taskExecutor")
-    public ThreadPoolTaskExecutor taskExecutor() {
+    public ThreadPoolTaskExecutor taskExecutor(ZipkinHelper zipkinHelper) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         // 核心线程数（常驻线程）
         executor.setCorePoolSize(5);
@@ -34,6 +37,7 @@ public class ThreadPoolConfig {
         // 关闭时等待任务执行完再停，最长等待 60 秒
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
+        executor.setTaskDecorator(new ZipkinTaskDecorator(zipkinHelper));
         // 初始化线程池（必须调用，否则配置不生效）
         executor.initialize();
         return executor;

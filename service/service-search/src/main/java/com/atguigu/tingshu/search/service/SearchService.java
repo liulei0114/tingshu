@@ -42,4 +42,6 @@ public interface SearchService {
     List<String> completeSuggest(String keyword);
 
     Collection<String> parseSuggestResult(SearchResponse<SuggestIndex> searchResponse, String s);
+
+    void updateLatelyAlbumRanking();
 }

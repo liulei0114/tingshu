@@ -377,6 +377,11 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
+    public void updateLatelyAlbumRanking() {
+
+    }
+
+    @Override
     public SearchRequest buildDSL(AlbumIndexQuery albumIndexQuery) {
         // 1.构建请求参数
         SearchRequest.Builder builder = new SearchRequest.Builder();

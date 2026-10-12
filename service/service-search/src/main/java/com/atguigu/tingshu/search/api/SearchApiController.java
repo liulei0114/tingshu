@@ -75,7 +75,12 @@ public class SearchApiController {
         return Result.ok(list);
     }
 
-
+    @Operation(summary = "更新Redis小时榜")
+    @GetMapping("/albumInfo/updateLatelyAlbumRanking")
+    public Result updateLatelyAlbumRanking() {
+        searchService.updateLatelyAlbumRanking();
+        return Result.ok();
+    }
 
 
 }

@@ -1,16 +1,19 @@
 package com.atguigu.tingshu.album.api;
 
 import com.atguigu.tingshu.album.service.AlbumInfoService;
+import com.atguigu.tingshu.album.service.BaseCategoryService;
 import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.common.login.AuthLogin;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.BaseCategory1;
 import com.atguigu.tingshu.query.album.AlbumInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.atguigu.tingshu.vo.album.AlbumListVo;
 import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +37,9 @@ public class AlbumInfoApiController {
 
 	@Autowired
 	private TrackInfoService trackInfoService;
+
+	@Autowired
+	private BaseCategoryService baseCategoryService;
 
 	@Operation(summary = "保存专辑信息")
 	@PostMapping("/albumInfo/saveAlbumInfo")
@@ -114,6 +120,15 @@ public class AlbumInfoApiController {
 
 		//4.响应分页对象
 		return Result.ok(pageInfo);
+	}
+
+	@Operation(summary = "查询所有一级分类列表")
+	@GetMapping("/category/findAllCategory1")
+	public Result<List<BaseCategory1>> getAllCategory1() {
+		LambdaQueryWrapper<BaseCategory1> queryWrapper = new LambdaQueryWrapper<>();
+		queryWrapper.select(BaseCategory1::getId);
+		List<BaseCategory1> list = baseCategoryService.list(queryWrapper);
+		return Result.ok(list);
 	}
 
 

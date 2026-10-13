@@ -4,6 +4,9 @@ public class RedisConstant {
 
     public static final String ALBUM_INFO_PREFIX = "album:info:";
 
+    // 专辑统计信息缓存前缀（与ALBUM_INFO_PREFIX区分开，避免不同类型对象共用同一key导致类型转换异常）
+    public static final String ALBUM_STAT_PREFIX = "album:stat:";
+
     public static final String CACHE_INFO_PREFIX = "cache:info:";
     public static final String CACHE_LOCK_SUFFIX = ":lock";
 

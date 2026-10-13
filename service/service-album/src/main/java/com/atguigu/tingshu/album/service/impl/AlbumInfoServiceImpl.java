@@ -210,7 +210,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
     }
 
     @Override
-    @RedissonCache(prefix = RedisConstant.ALBUM_INFO_PREFIX)
+    @RedissonCache(prefix = RedisConstant.ALBUM_STAT_PREFIX)
     public AlbumStatVo getAlbumStatVo(Long albumId) {
         AlbumStatVo albumStatVo = albumStatMapper.selectAlbumStatVo(albumId);
         return albumStatVo;

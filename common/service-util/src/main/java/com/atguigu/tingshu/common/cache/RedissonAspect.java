@@ -30,7 +30,7 @@ public class RedissonAspect {
     public Object around(ProceedingJoinPoint joinPoint, RedissonCache redissonCache) throws Throwable {
         String params = "none";
         Object[] args = joinPoint.getArgs();
-        if (args != null && args.length > 0 && args[0] !=null) {
+        if (args != null && args.length > 0 && args[0] != null) {
             params = Arrays.stream(args)
                     .map(Object::toString)
                     .collect(Collectors.joining("_"));

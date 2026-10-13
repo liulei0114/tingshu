@@ -6,6 +6,7 @@ import com.atguigu.tingshu.account.service.UserAccountService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.model.account.UserAccount;
 import com.atguigu.tingshu.model.account.UserAccountDetail;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,18 @@ public class UserAccountServiceImpl extends ServiceImpl<UserAccountMapper, UserA
         // 2.新增账户变动日志
         this.saveUserAccountDetail(userId, title, SystemConstant.ACCOUNT_TRADE_TYPE_DEPOSIT, amount, orderNo);
 
+    }
+
+    @Override
+    public BigDecimal getAvailableAmount(Long userId) {
+        LambdaQueryWrapper<UserAccount> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(UserAccount::getUserId, userId);
+        queryWrapper.select(UserAccount::getAvailableAmount);
+        UserAccount userAccount = userAccountMapper.selectOne(queryWrapper);
+        if (userAccount != null) {
+            return userAccount.getAvailableAmount();
+        }
+        return new BigDecimal("0.00");
     }
 
     private void saveUserAccountDetail(Long userId, String title, String tradeType, BigDecimal amount, String orderNo) {

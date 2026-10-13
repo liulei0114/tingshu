@@ -1,6 +1,7 @@
 package com.atguigu.tingshu.user.client;
 
 import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.model.user.VipServiceConfig;
 import com.atguigu.tingshu.user.client.impl.UserDegradeFeignClient;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
@@ -37,4 +38,7 @@ public interface UserFeignClient {
             @PathVariable Long albumId,
             @RequestBody List<AlbumTrackListVo> needCheckPayStatusTrackIdList
     );
+
+    @GetMapping("/api/user/vipServiceConfig/getVipServiceConfig/{id}")
+    Result<VipServiceConfig> getVipServiceConfig(@PathVariable Long id);
 }

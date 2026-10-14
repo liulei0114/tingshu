@@ -6,6 +6,7 @@ import com.atguigu.tingshu.model.user.VipServiceConfig;
 import com.atguigu.tingshu.user.client.UserFeignClient;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -43,6 +44,12 @@ public class UserDegradeFeignClient implements UserFeignClient {
     @Override
     public Result<List<Long>> findUserPaidTrackList(Long albumId) {
         log.error("[用户服务]提供远程调用findUserPaidTrackList执行服务降级");
+        return null;
+    }
+
+    @Override
+    public Result savePaidRecord(UserPaidRecordVo userPaidRecordVo) {
+        log.error("[用户服务]远程调用savePaidRecord执行服务降级");
         return null;
     }
 

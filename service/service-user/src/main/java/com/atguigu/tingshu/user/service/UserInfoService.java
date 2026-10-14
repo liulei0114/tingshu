@@ -4,6 +4,7 @@ import com.atguigu.tingshu.model.user.UserInfo;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.atguigu.tingshu.vo.user.UserListenProcessVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.math.BigDecimal;
@@ -27,4 +28,6 @@ public interface UserInfoService extends IService<UserInfo> {
     Boolean isPaidAlbum(Long userId, Long albumId);
 
     List<Long> findUserPaidTrackList(Long userId, Long albumId);
+
+    void savePaidRecord(UserPaidRecordVo userPaidRecordVo);
 }

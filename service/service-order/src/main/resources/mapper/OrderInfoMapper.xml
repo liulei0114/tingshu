@@ -4,7 +4,32 @@
 
 <mapper namespace="com.atguigu.tingshu.order.mapper.OrderInfoMapper">
 
+    <resultMap id="orderInfoResultMap" type="com.atguigu.tingshu.model.order.OrderInfo" autoMapping="true">
+        <id property="id" column="id"></id>
+        <!--订单明细列表 select指定查询ID(查询订单明细)-->
+        <collection property="orderDetailList" column="id" select="getOrderDetailById"></collection>
+    </resultMap>
 
+    <!--根据订单ID查询订单明细列表-->
+    <select id="getOrderDetailById" resultType="com.atguigu.tingshu.model.order.OrderDetail">
+        select id, item_id, item_name, item_price, item_url
+        from order_detail
+        where order_id = #{id}
+    </select>
 
+    <!--分页查询订单列表-->
+    <select id="getOrderByPage" resultMap="orderInfoResultMap">
+        select oi.id,
+               oi.order_no,
+               oi.order_status,
+               oi.original_amount,
+               oi.derate_amount,
+               oi.order_amount,
+               oi.pay_way
+        from order_info oi
+        where user_id = #{userId}
+          and oi.is_deleted = 0
+        order by oi.id desc
+    </select>
 </mapper>
 

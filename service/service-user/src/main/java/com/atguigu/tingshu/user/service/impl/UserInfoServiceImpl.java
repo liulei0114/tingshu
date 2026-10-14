@@ -4,6 +4,7 @@ import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.IdUtil;
 import com.atguigu.tingshu.album.AlbumFeignClient;
@@ -15,19 +16,16 @@ import com.atguigu.tingshu.common.rabbit.service.RabbitService;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.TrackInfo;
-import com.atguigu.tingshu.model.user.UserInfo;
-import com.atguigu.tingshu.model.user.UserListenProcess;
-import com.atguigu.tingshu.model.user.UserPaidAlbum;
-import com.atguigu.tingshu.model.user.UserPaidTrack;
-import com.atguigu.tingshu.user.mapper.UserInfoMapper;
-import com.atguigu.tingshu.user.mapper.UserPaidAlbumMapper;
-import com.atguigu.tingshu.user.mapper.UserPaidTrackMapper;
+import com.atguigu.tingshu.model.user.*;
+import com.atguigu.tingshu.user.mapper.*;
+import com.atguigu.tingshu.user.service.DeliveryStrategy;
 import com.atguigu.tingshu.user.service.UserInfoService;
 import com.atguigu.tingshu.user.service.UserListenProcessService;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.album.TrackStatMqVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.atguigu.tingshu.vo.user.UserListenProcessVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -75,6 +73,10 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     @Autowired
     private UserListenProcessService userListenProcessService;
+
+
+    @Autowired
+    private DeliveryStrategyFactory deliveryStrategyFactory;
 
 
     @Override
@@ -163,7 +165,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         UserInfo userInfo = userInfoMapper.selectById(userId);
 
         // 获取前几之后的ids
-        List<Long> ids = needCheckPayStatusTrackIdList.stream().filter(s -> s.getOrderNum() > albumInfo.getTracksForFree()).map(s->s.getTrackId()).collect(Collectors.toList());
+        List<Long> ids = needCheckPayStatusTrackIdList.stream().filter(s -> s.getOrderNum() > albumInfo.getTracksForFree()).map(s -> s.getTrackId()).collect(Collectors.toList());
         // 是vip 并且专辑是vip免费
         if (this.validateVipStatus(userInfo) && SystemConstant.ALBUM_PAY_TYPE_VIPFREE.equals(albumInfo.getPayType())) {
             return setTrackPayStatus(needCheckPayStatusTrackIdList, false, null);
@@ -210,7 +212,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             userListenProcess.setAlbumId(userListenProcessVo.getAlbumId());
             userListenProcess.setCreateTime(new Date());
             userListenProcess.setUpdateTime(new Date());
-        }else{
+        } else {
             userListenProcess.setBreakSecond(userListenProcessVo.getBreakSecond());
             userListenProcess.setUpdateTime(new Date());
         }
@@ -218,19 +220,19 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
         String redisKey
                 = RedisConstant.USER_TRACK_REPEAT_STAT_PREFIX + userId + "_" + userListenProcessVo.getAlbumId() + "_" + userListenProcessVo.getTrackId();
-        //5.1.2 采用Redis提供set k v ex nx  命令，设置RedisKey，设置过期时间，写入成功则发送MQ消息，更新统计数值；写入失败则忽略
+        // 5.1.2 采用Redis提供set k v ex nx  命令，设置RedisKey，设置过期时间，写入成功则发送MQ消息，更新统计数值；写入失败则忽略
         Date date = new Date();
         long ttl = DateUtil.endOfDay(date).getTime() - date.getTime();
         Boolean flag = redisTemplate.opsForValue().setIfAbsent(redisKey, "1", ttl, TimeUnit.MILLISECONDS);
         if (flag) {
-            //5.2.1 构建MQ消息VO对象 包含：专辑ID、声音ID、统计类型、增量数值、businessNo-UUID（用于消费者端幂等性处理），TODO VO必须序列化接口
+            // 5.2.1 构建MQ消息VO对象 包含：专辑ID、声音ID、统计类型、增量数值、businessNo-UUID（用于消费者端幂等性处理），TODO VO必须序列化接口
             TrackStatMqVo mqVo = new TrackStatMqVo();
             mqVo.setBusinessNo(IdUtil.fastUUID());
             mqVo.setAlbumId(userListenProcessVo.getAlbumId());
             mqVo.setTrackId(userListenProcessVo.getTrackId());
             mqVo.setStatType(SystemConstant.TRACK_STAT_PLAY);
             mqVo.setCount(1);
-            //5.2.2 发送MQ消息
+            // 5.2.2 发送MQ消息
             rabbitService.sendMessage(MqConst.EXCHANGE_TRACK, MqConst.ROUTING_TRACK_STAT_UPDATE, mqVo);
         }
     }
@@ -248,9 +250,16 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     @Override
     public List<Long> findUserPaidTrackList(Long userId, Long albumId) {
         LambdaQueryWrapper<UserPaidTrack> longLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        longLambdaQueryWrapper.select(UserPaidTrack::getId).eq(UserPaidTrack::getUserId,userId).eq(UserPaidTrack::getAlbumId,albumId);
+        longLambdaQueryWrapper.select(UserPaidTrack::getId).eq(UserPaidTrack::getUserId, userId).eq(UserPaidTrack::getAlbumId, albumId);
         List<Long> list = userPaidTrackMapper.selectList(longLambdaQueryWrapper).stream().map(userPaidTrack -> userPaidTrack.getId()).toList();
         return list;
+    }
+
+    @Override
+    public void savePaidRecord(UserPaidRecordVo userPaidRecordVo) {
+        String itemType = userPaidRecordVo.getItemType();
+        DeliveryStrategy strategy = deliveryStrategyFactory.getStrategy(itemType);
+        strategy.delivery(userPaidRecordVo);
     }
 
     public List<AlbumTrackListVo> setTrackPayStatus(List<AlbumTrackListVo> result, Boolean isShowPaidMark, List<Long> ids) {

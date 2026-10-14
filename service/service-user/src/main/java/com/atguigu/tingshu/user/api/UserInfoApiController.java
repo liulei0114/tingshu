@@ -6,6 +6,7 @@ import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.user.service.UserInfoService;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +69,18 @@ public class UserInfoApiController {
         Long userId = AuthContextHolder.getUserId();
         List<Long> list = userInfoService.findUserPaidTrackList(userId, albumId);
         return Result.ok(list);
+    }
+
+    /**
+     * 用户支付成功后，虚拟物品发货
+     * @param userPaidRecordVo
+     * @return
+     */
+    @Operation(summary = "用户支付成功后，虚拟物品发货")
+    @PostMapping("/userInfo/savePaidRecord")
+    public Result savePaidRecord(@RequestBody UserPaidRecordVo userPaidRecordVo) {
+        userInfoService.savePaidRecord(userPaidRecordVo);
+        return Result.ok();
     }
 
 }

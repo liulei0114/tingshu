@@ -52,5 +52,11 @@ public class AlbumDegradeFeignClient implements AlbumFeignClient {
         return null;
     }
 
+    @Override
+    public Result<List<TrackInfo>> findWaitBuyTrackInfoList(Long trackId, Integer trackCount) {
+        log.error("[专辑服务]提供远程调用方法findWaitBuyTrackInfoList执行服务降级, trackId: {}, trackCount: {}", trackId, trackCount);
+        return null;
+    }
+
 
 }

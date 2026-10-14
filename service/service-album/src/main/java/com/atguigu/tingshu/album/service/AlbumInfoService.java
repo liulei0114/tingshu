@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
+import java.util.Map;
 
 public interface AlbumInfoService extends IService<AlbumInfo> {
 
@@ -28,4 +29,6 @@ public interface AlbumInfoService extends IService<AlbumInfo> {
     AlbumStatVo getAlbumStatVo(Long albumId);
 
     AlbumInfo getAlbumInfoFromDbAndCache(Long id);
+
+    List<Map<String, Object>> getUserTrackPaidList(Long userId, Long trackId);
 }

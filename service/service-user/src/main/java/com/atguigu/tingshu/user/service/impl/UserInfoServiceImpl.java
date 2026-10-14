@@ -235,6 +235,24 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         }
     }
 
+    @Override
+    public Boolean isPaidAlbum(Long userId, Long albumId) {
+        Long count = userPaidAlbumMapper.selectCount(
+                new LambdaQueryWrapper<UserPaidAlbum>()
+                        .eq(UserPaidAlbum::getUserId, userId)
+                        .eq(UserPaidAlbum::getAlbumId, albumId)
+        );
+        return count > 0;
+    }
+
+    @Override
+    public List<Long> findUserPaidTrackList(Long userId, Long albumId) {
+        LambdaQueryWrapper<UserPaidTrack> longLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        longLambdaQueryWrapper.select(UserPaidTrack::getId).eq(UserPaidTrack::getUserId,userId).eq(UserPaidTrack::getAlbumId,albumId);
+        List<Long> list = userPaidTrackMapper.selectList(longLambdaQueryWrapper).stream().map(userPaidTrack -> userPaidTrack.getId()).toList();
+        return list;
+    }
+
     public List<AlbumTrackListVo> setTrackPayStatus(List<AlbumTrackListVo> result, Boolean isShowPaidMark, List<Long> ids) {
         if (ids != null) {
             for (AlbumTrackListVo albumTrackListVo : result) {

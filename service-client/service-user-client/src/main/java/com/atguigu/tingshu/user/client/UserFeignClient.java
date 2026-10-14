@@ -41,4 +41,15 @@ public interface UserFeignClient {
 
     @GetMapping("/api/user/vipServiceConfig/getVipServiceConfig/{id}")
     Result<VipServiceConfig> getVipServiceConfig(@PathVariable Long id);
+
+    @GetMapping("/api/user/userInfo/isPaidAlbum/{albumId}")
+    Result<Boolean> isPaidAlbum(@PathVariable Long albumId);
+
+    /**
+     * 查询当前用户某个专辑下已购声音ID列表
+     * @param albumId
+     * @return
+     */
+    @GetMapping("/api/user/userInfo/findUserPaidTrackList/{albumId}")
+    Result<List<Long>> findUserPaidTrackList(@PathVariable Long albumId);
 }

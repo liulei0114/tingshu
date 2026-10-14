@@ -3,6 +3,7 @@ package com.atguigu.tingshu.album;
 import cn.hutool.core.collection.CollUtil;
 import com.atguigu.tingshu.album.impl.AlbumDegradeFeignClient;
 import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.*;
 import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import com.atguigu.tingshu.vo.album.CategoryInfoVo;
@@ -40,4 +41,7 @@ public interface AlbumFeignClient {
 
     @GetMapping("/api/album/category/findAllCategory1")
     Result<List<BaseCategory1>> getAllCategory1();
+
+    @GetMapping("/api/album/trackInfo/findPaidTrackInfoList/{trackId}/{trackCount}")
+    Result<List<TrackInfo>> findWaitBuyTrackInfoList(@PathVariable Long trackId, @PathVariable Integer trackCount);
 }

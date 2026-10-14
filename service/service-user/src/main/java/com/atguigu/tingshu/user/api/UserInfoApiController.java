@@ -47,5 +47,28 @@ public class UserInfoApiController {
         return Result.ok(needCheckPayStatusTrackIdList);
     }
 
+    @AuthLogin
+    @Operation(summary = "判断当前用户是否购买过指定专辑")
+    @GetMapping("/userInfo/isPaidAlbum/{albumId}")
+    public Result<Boolean> isPaidAlbum(@PathVariable Long albumId) {
+        Long userId = AuthContextHolder.getUserId();
+        Boolean isPaidAlbum = userInfoService.isPaidAlbum(userId, albumId);
+        return Result.ok(isPaidAlbum);
+    }
+
+    /**
+     * 查询当前用户某个专辑下已购声音ID列表
+     * @param albumId
+     * @return
+     */
+    @AuthLogin
+    @Operation(summary = "查询当前用户某个专辑下已购声音ID列表")
+    @GetMapping("/userInfo/findUserPaidTrackList/{albumId}")
+    public Result<List<Long>> findUserPaidTrackList(@PathVariable Long albumId) {
+        Long userId = AuthContextHolder.getUserId();
+        List<Long> list = userInfoService.findUserPaidTrackList(userId, albumId);
+        return Result.ok(list);
+    }
+
 }
 

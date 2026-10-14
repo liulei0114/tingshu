@@ -21,6 +21,7 @@ import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.AlbumStat;
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.query.album.AlbumInfoQuery;
+import com.atguigu.tingshu.user.client.UserFeignClient;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.atguigu.tingshu.vo.album.AlbumListVo;
 import com.atguigu.tingshu.vo.album.AlbumStatVo;
@@ -37,9 +38,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -69,6 +74,9 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
     @Autowired
     private RedissonClient redissonClient;
+
+    @Autowired
+    private UserFeignClient userFeignClient;
 
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     @Override
@@ -141,7 +149,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
             // 获取锁
             boolean isLocked = lock.tryLock();
             if (!isLocked) {
-                //6.获取分布式锁失败，进行自旋（自旋可能获取锁成功线程会将业务数据已经放入缓存）
+                // 6.获取分布式锁失败，进行自旋（自旋可能获取锁成功线程会将业务数据已经放入缓存）
                 // 获取锁失败
                 return this.getAlbumInfo(id);
             }
@@ -174,6 +182,50 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         List<AlbumAttributeValue> albumAttributeValues = albumAttributeValueMapper.selectAlbumAttributeValueByAlbumId(id);
         albumInfo.setAlbumAttributeValueVoList(albumAttributeValues);
         return albumInfo;
+    }
+
+    @Override
+    public List<Map<String, Object>> getUserTrackPaidList(Long userId, Long trackId) {
+        // 1.根据选择购买声音ID查询声音记录，得到声音序号，得到专辑ID
+        TrackInfo trackInfo = trackInfoMapper.selectById(trackId);
+        Integer orderNum = trackInfo.getOrderNum();
+        Long albumId = trackInfo.getAlbumId();
+        // 2.根据"起始声音"需要+专辑ID查询声音表得到“未购买声音列表”，这里可能包含已购买声音
+        List<TrackInfo> waitBuyTrackList = trackInfoMapper.selectList(
+                new LambdaQueryWrapper<TrackInfo>()
+                        .eq(TrackInfo::getAlbumId, albumId)
+                        .ge(TrackInfo::getOrderNum, orderNum)
+                        .select(TrackInfo::getId)
+                        .orderByAsc(TrackInfo::getOrderNum)
+        );
+        // 3.远程调用用户服务，得到用户已购声音ID列表，如果有值将已购买声音ID排除掉
+        List<Long> userPaidTrackIdList = userFeignClient.findUserPaidTrackList(albumId).getData();
+        if (CollUtil.isNotEmpty(userPaidTrackIdList)) {
+            waitBuyTrackList =
+                    waitBuyTrackList.stream()
+                            .filter(t -> !userPaidTrackIdList.contains(t.getId()))
+                            .collect(Collectors.toList());
+        }
+        AlbumInfo albumInfo = albumInfoMapper.selectById(albumId);
+        BigDecimal price = albumInfo.getPrice();
+        List<Map<String, Object>> result = new ArrayList<>();
+        // 放入本集
+        Map<String, Object> currentTrack = new HashMap<>();
+        currentTrack.put("price", price);
+        currentTrack.put("name", "本集");
+        currentTrack.put("trackCount", 1);
+        result.add(currentTrack);
+        Integer size = waitBuyTrackList.size();
+        for (Integer i = 10; i <= 50; i += 10) {
+            Integer trackCount = Math.min(i, size);
+            String totalPrice = price.multiply(new BigDecimal(trackCount)).setScale(2, BigDecimal.ROUND_HALF_UP).toString();
+            Map<String, Object> track = new HashMap<>();
+            track.put("price", totalPrice);
+            track.put("name", "后" + trackCount + "集");
+            track.put("trackCount", trackCount);
+            result.add(track);
+        }
+        return result;
     }
 
     @Override

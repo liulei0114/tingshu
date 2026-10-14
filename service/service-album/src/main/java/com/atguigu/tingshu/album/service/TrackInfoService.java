@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.List;
+
 public interface TrackInfoService extends IService<TrackInfo> {
 
     void saveTrackInfo(TrackInfoVo trackInfoVo, Long userId);
@@ -24,4 +26,6 @@ public interface TrackInfoService extends IService<TrackInfo> {
     void updateTrackStat(TrackStatMqVo mqVo);
 
     TrackStatVo getTrackStatVo(Long trackId);
+
+    List<TrackInfo> findWaitBuyTrackInfoList(Long userId, Long trackId, Integer trackCount);
 }

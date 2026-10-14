@@ -18,6 +18,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @Tag(name = "声音管理")
@@ -95,6 +96,21 @@ public class TrackInfoApiController {
     public Result<TrackStatVo> getTrackStatVo(@PathVariable Long trackId){
         TrackStatVo trackStatVo = trackInfoService.getTrackStatVo(trackId);
         return Result.ok(trackStatVo);
+    }
+
+    /**
+     *  查询用户未购买声音列表
+     * @param trackId 选择购买声音ID，作为起始标准计算未购买声音数量
+     * @param trackCount 限制查询未购买声音数量
+     * @return
+     */
+    @AuthLogin
+    @Operation(summary = "查询用户未购买声音列表")
+    @GetMapping("/trackInfo/findPaidTrackInfoList/{trackId}/{trackCount}")
+    public Result<List<TrackInfo>> findWaitBuyTrackInfoList(@PathVariable Long trackId, @PathVariable Integer trackCount) {
+        Long userId = AuthContextHolder.getUserId();
+        List<TrackInfo> list = trackInfoService.findWaitBuyTrackInfoList(userId, trackId, trackCount);
+        return Result.ok(list);
     }
 
 }

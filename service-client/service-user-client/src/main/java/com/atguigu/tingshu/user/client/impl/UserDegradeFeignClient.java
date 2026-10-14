@@ -33,4 +33,18 @@ public class UserDegradeFeignClient implements UserFeignClient {
         log.error("[用户服务]提供远程调用getVipServiceConfig执行服务降级");
         return null;
     }
+
+    @Override
+    public Result<Boolean> isPaidAlbum(Long albumId) {
+        log.error("[用户服务]提供远程调用isPaidAlbum执行服务降级");
+        return null;
+    }
+
+    @Override
+    public Result<List<Long>> findUserPaidTrackList(Long albumId) {
+        log.error("[用户服务]提供远程调用findUserPaidTrackList执行服务降级");
+        return null;
+    }
+
+
 }

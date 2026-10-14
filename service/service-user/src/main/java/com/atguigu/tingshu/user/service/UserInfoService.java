@@ -23,4 +23,8 @@ public interface UserInfoService extends IService<UserInfo> {
     BigDecimal getTrackBreakSecond(Long userId, Long trackId);
 
     void updateUserListenProcess(Long userId, UserListenProcessVo userListenProcessVo);
+
+    Boolean isPaidAlbum(Long userId, Long albumId);
+
+    List<Long> findUserPaidTrackList(Long userId, Long albumId);
 }

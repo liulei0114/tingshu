@@ -1,6 +1,7 @@
 package com.atguigu.tingshu.album.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
@@ -18,6 +19,7 @@ import com.atguigu.tingshu.model.album.AlbumStat;
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.model.album.TrackStat;
 import com.atguigu.tingshu.model.user.UserInfo;
+import com.atguigu.tingshu.model.user.UserPaidTrack;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
 import com.atguigu.tingshu.user.client.UserFeignClient;
 import com.atguigu.tingshu.vo.album.*;
@@ -34,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -263,7 +266,7 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateTrackStat(TrackStatMqVo mqVo) {
-        //1.更新声音统计数值
+        // 1.更新声音统计数值
         trackStatMapper.update(
                 null,
                 new LambdaUpdateWrapper<TrackStat>()
@@ -272,9 +275,9 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
                         .setSql("stat_num = stat_num + " + mqVo.getCount())
         );
 
-        //2.如果是"播放"or"评论"还需要更新专辑统计数值
+        // 2.如果是"播放"or"评论"还需要更新专辑统计数值
         if (SystemConstant.TRACK_STAT_PLAY.equals(mqVo.getStatType())) {
-            //更新专辑统计表播放量
+            // 更新专辑统计表播放量
             albumStatMapper.update(
                     null,
                     new LambdaUpdateWrapper<AlbumStat>()
@@ -284,7 +287,7 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
             );
         }
         if (SystemConstant.TRACK_STAT_COMMENT.equals(mqVo.getStatType())) {
-            //更新专辑统计表评论量
+            // 更新专辑统计表评论量
             albumStatMapper.update(
                     null,
                     new LambdaUpdateWrapper<AlbumStat>()
@@ -302,6 +305,33 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
 
     }
 
+    @Override
+    public List<TrackInfo> findWaitBuyTrackInfoList(Long userId, Long trackId, Integer trackCount) {
+        TrackInfo trackInfo = trackInfoMapper.selectById(trackId);
+        if (trackInfo == null) {
+            throw new GuiguException(500, "声音不存在");
+        }
+        Long albumId = trackInfo.getAlbumId();
+        Integer orderNum = trackInfo.getOrderNum();
+        // 查询专辑下所有声音
+        LambdaQueryWrapper<TrackInfo> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(TrackInfo::getAlbumId, albumId).ge(TrackInfo::getOrderNum, orderNum).orderByAsc(TrackInfo::getOrderNum);
+        // 查询用户已经购买过的声音
+        Result<List<Long>> userPaidTrackListResult = userFeignClient.findUserPaidTrackList(albumId);
+        if (userPaidTrackListResult == null || userPaidTrackListResult.getCode() != 200) {
+            log.error("远程调用【用户服务（findUserPaidTrackList）】失败,失败albumId:{}", albumId);
+            String message = userPaidTrackListResult != null ? userPaidTrackListResult.getMessage() : "";
+            throw new GuiguException(500, "远程调用【用户服务（findUserPaidTrackList）】失败," + message);
+        }
+        List<Long> userPaidTrackList = userPaidTrackListResult.getData();
+        if (CollUtil.isNotEmpty(userPaidTrackList)) {
+            lambdaQueryWrapper.notIn(TrackInfo::getId, userPaidTrackList);
+        }
+        lambdaQueryWrapper.last("limit " + trackCount);
+        List<TrackInfo> trackInfoList = trackInfoMapper.selectList(lambdaQueryWrapper);
+        return trackInfoList;
+    }
+
     public List<AlbumTrackListVo> setTrackPayStatus(List<AlbumTrackListVo> result, Boolean isShowPaidMark, List<Long> ids) {
         if (ids != null) {
             for (AlbumTrackListVo albumTrackListVo : result) {
@@ -316,7 +346,6 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         }
         return result;
     }
-
 
 
 }

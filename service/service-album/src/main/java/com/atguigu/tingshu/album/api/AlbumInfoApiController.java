@@ -8,6 +8,7 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.BaseCategory1;
+import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.query.album.AlbumInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.atguigu.tingshu.vo.album.AlbumListVo;
@@ -24,6 +25,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Tag(name = "专辑管理")
@@ -131,6 +133,23 @@ public class AlbumInfoApiController {
 		return Result.ok(list);
 	}
 
+
+	/**
+	 * 基于当前选择购买起始声音得到分集购买列表
+	 *
+	 * @param trackId
+	 * @return [{name:"本集",price:1,trackCount:1},{name:"后10集",price:10,trackCount:10}...{name:"全集/45集",price:45,trackCount:45}]
+	 */
+	@AuthLogin
+	@Operation(summary = "基于当前选择购买起始声音得到分集购买列表")
+	@GetMapping("/trackInfo/findUserTrackPaidList/{trackId}")
+	public Result<List<Map<String, Object>>> getUserTrackPaidList(@PathVariable Long trackId) {
+		//1.从ThreadLocal中获取当前登录用户ID
+		Long userId = AuthContextHolder.getUserId();
+		//2.调用业务逻辑获取分集购买列表
+		List<Map<String, Object>> list = albumInfoService.getUserTrackPaidList(userId, trackId);
+		return Result.ok(list);
+	}
 
 }
 
